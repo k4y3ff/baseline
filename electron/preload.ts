@@ -20,6 +20,14 @@ export interface OuraRow {
   synced_at: string
 }
 
+export interface ScreeningResult {
+  type: string
+  date: string
+  answers: number[]
+  score: number
+  severity: string
+}
+
 const baseline = {
   // Vault setup
   getVaultPath: (): Promise<string | null> => ipcRenderer.invoke('get-vault-path'),
@@ -56,7 +64,12 @@ const baseline = {
 
   // Ollama
   checkOllama: (): Promise<{ available: boolean }> => ipcRenderer.invoke('check-ollama'),
-  generateSummary: (): Promise<string> => ipcRenderer.invoke('generate-summary')
+  generateSummary: (): Promise<string> => ipcRenderer.invoke('generate-summary'),
+
+  // Screenings
+  listScreenings: (): Promise<ScreeningResult[]> => ipcRenderer.invoke('list-screenings'),
+  saveScreening: (result: ScreeningResult): Promise<void> =>
+    ipcRenderer.invoke('save-screening', result)
 }
 
 if (process.contextIsolated) {

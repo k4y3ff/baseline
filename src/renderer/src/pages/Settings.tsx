@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useConfig } from '../hooks/useConfig'
+import { ALL_SCREENINGS, FREQUENCY_LABELS } from '../lib/screenings'
+import type { ScreeningFrequency } from '../lib/screenings'
 
 export default function Settings() {
   const { config, loading, save, reload } = useConfig()
@@ -303,6 +305,72 @@ export default function Settings() {
                 <p className="text-[10px] text-[--color-muted]">
                   Must be pulled via <span className="font-mono">ollama pull {ollamaModel || 'llama3.2'}</span>
                 </p>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* Screenings */}
+        <section className="flex flex-col gap-3">
+          <h2 className="text-xs font-semibold text-[--color-muted] uppercase tracking-wider">
+            Screenings
+          </h2>
+          <div className="bg-[--color-surface-2] rounded-xl border border-[--color-border] p-4 flex flex-col gap-4">
+            <p className="text-xs text-[--color-muted] leading-relaxed">
+              Periodic self-assessments. You'll be reminded on the Today tab when one is due.
+            </p>
+
+            {/* Screening checkboxes */}
+            <div className="flex flex-col gap-3">
+              {ALL_SCREENINGS.map((s) => {
+                const enabled = (config.screeningsEnabled ?? []).includes(s.id)
+                return (
+                  <label key={s.id} className="flex items-start gap-3 cursor-pointer">
+                    <div className="relative mt-0.5">
+                      <input
+                        type="checkbox"
+                        checked={enabled}
+                        onChange={async (e) => {
+                          const current = config.screeningsEnabled ?? []
+                          const next = e.target.checked
+                            ? [...current, s.id]
+                            : current.filter((id) => id !== s.id)
+                          await save({ screeningsEnabled: next })
+                        }}
+                        className="sr-only"
+                      />
+                      <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${
+                        enabled
+                          ? 'bg-[--color-brand] border-[--color-brand]'
+                          : 'bg-transparent border-[--color-border]'
+                      }`}>
+                        {enabled && <span className="text-white text-xs leading-none">✓</span>}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">{s.id}</p>
+                      <p className="text-xs text-[--color-muted] mt-0.5">{s.fullName}</p>
+                    </div>
+                  </label>
+                )
+              })}
+            </div>
+
+            {/* Frequency — only shown when at least one screening is enabled */}
+            {(config.screeningsEnabled ?? []).length > 0 && (
+              <div className="flex items-center justify-between gap-4 pt-1 border-t border-[--color-border]">
+                <label className="text-sm text-[--color-muted]">Frequency</label>
+                <select
+                  value={config.screeningFrequency ?? 'weekly'}
+                  onChange={async (e) => {
+                    await save({ screeningFrequency: e.target.value as ScreeningFrequency })
+                  }}
+                  className="bg-[--color-surface] border border-[--color-border] rounded-lg px-3 py-1.5 text-sm outline-none focus:border-[--color-brand] transition-colors"
+                >
+                  {(Object.keys(FREQUENCY_LABELS) as ScreeningFrequency[]).map((key) => (
+                    <option key={key} value={key}>{FREQUENCY_LABELS[key]}</option>
+                  ))}
+                </select>
               </div>
             )}
           </div>

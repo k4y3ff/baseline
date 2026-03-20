@@ -4,6 +4,7 @@ import Setup from './pages/Setup'
 import Dashboard from './pages/Dashboard'
 import CheckIn from './pages/CheckIn'
 import History from './pages/History'
+import Screening from './pages/Screening'
 import Settings from './pages/Settings'
 import Nav from './components/ui/Nav'
 
@@ -42,6 +43,8 @@ export default function App() {
             <Route path="/check-in" element={<CheckIn />} />
             <Route path="/check-in/:date" element={<CheckIn />} />
             <Route path="/history" element={<History />} />
+            <Route path="/screening/:type" element={<Screening />} />
+            <Route path="/screening/:type/:date" element={<Screening />} />
             <Route path="/settings" element={<Settings />} />
           </Routes>
         </div>

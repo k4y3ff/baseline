@@ -3,7 +3,7 @@
  * Provides realistic stub data so the UI can be previewed without Electron.
  */
 
-import type { OuraRow, Config } from '../types'
+import type { OuraRow, Config, ScreeningResult } from '../types'
 
 const today = new Date().toISOString().split('T')[0]
 
@@ -32,6 +32,11 @@ let mockConfig: Config = {
   ouraClientId: undefined,
   ouraAccessToken: undefined
 }
+
+const mockScreenings: ScreeningResult[] = [
+  { type: 'PHQ-9', date: daysAgo(14), answers: [1,1,0,1,0,0,1,0,0], score: 4, severity: 'Minimal' },
+  { type: 'PHQ-9', date: daysAgo(7),  answers: [2,2,1,2,1,1,1,0,0], score: 10, severity: 'Moderate' },
+]
 
 const mockAuthCallbacks: Array<(success: boolean, error?: string) => void> = []
 
@@ -99,6 +104,14 @@ export function installDevMock(): void {
     },
 
     listCheckIns: async () => Object.keys(mockCheckIns),
+
+    listScreenings: async () => [...mockScreenings],
+
+    saveScreening: async (result: ScreeningResult) => {
+      const idx = mockScreenings.findIndex(r => r.type === result.type && r.date === result.date)
+      if (idx >= 0) mockScreenings[idx] = result
+      else mockScreenings.unshift(result)
+    },
 
     checkOllama: async () => {
       await new Promise((r) => setTimeout(r, 600))

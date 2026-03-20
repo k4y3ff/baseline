@@ -1,4 +1,4 @@
-import type { Config, OuraRow } from './index'
+import type { Config, OuraRow, ScreeningResult } from './index'
 
 declare global {
   interface Window {
@@ -18,6 +18,8 @@ declare global {
       listCheckIns(): Promise<string[]>
       checkOllama(): Promise<{ available: boolean }>
       generateSummary(): Promise<string>
+      listScreenings(): Promise<ScreeningResult[]>
+      saveScreening(result: ScreeningResult): Promise<void>
     }
   }
 }

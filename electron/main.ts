@@ -36,6 +36,8 @@ interface Config {
   summaryText?: string        // cached summary text
   ollamaSummariesEnabled?: boolean
   ollamaModel?: string        // defaults to 'llama3.2'
+  screeningsEnabled?: string[]
+  screeningFrequency?: 'weekly' | 'biweekly' | 'monthly' | 'quarterly'
 }
 
 function getConfigPath(vaultPath: string): string {
@@ -502,7 +504,8 @@ function registerIpcHandlers(): void {
     'start-oura-auth', 'disconnect-oura',
     'read-oura-csv', 'sync-oura',
     'read-check-in', 'write-check-in', 'list-check-ins',
-    'check-ollama', 'generate-summary'
+    'check-ollama', 'generate-summary',
+    'list-screenings', 'save-screening'
   ]
   for (const ch of channels) ipcMain.removeHandler(ch)
 
@@ -659,6 +662,56 @@ function registerIpcHandlers(): void {
     if (!vaultPath) throw new Error('No vault path set')
     return generateDailySummary(vaultPath)
   })
+
+  // Screenings
+  ipcMain.handle('list-screenings', () => {
+    const vaultPath = getVaultPath()
+    if (!vaultPath) return []
+    return listScreeningResults(vaultPath)
+  })
+
+  ipcMain.handle('save-screening', (_e, result: ScreeningResult) => {
+    const vaultPath = getVaultPath()
+    if (!vaultPath) throw new Error('No vault path set')
+    saveScreeningResult(vaultPath, result)
+  })
+}
+
+// ─── Screenings ───────────────────────────────────────────────────────────────
+interface ScreeningResult {
+  type: string
+  date: string
+  answers: number[]
+  score: number
+  severity: string
+}
+
+function getScreeningDir(vaultPath: string, type: string): string {
+  return join(vaultPath, 'screenings', type)
+}
+
+function listScreeningResults(vaultPath: string): ScreeningResult[] {
+  const screeningsDir = join(vaultPath, 'screenings')
+  if (!existsSync(screeningsDir)) return []
+  const results: ScreeningResult[] = []
+  for (const type of readdirSync(screeningsDir)) {
+    const typeDir = join(screeningsDir, type)
+    try {
+      for (const file of readdirSync(typeDir).filter((f) => f.endsWith('.json'))) {
+        try {
+          const raw = readFileSync(join(typeDir, file), 'utf-8')
+          results.push(JSON.parse(raw) as ScreeningResult)
+        } catch { /* skip malformed files */ }
+      }
+    } catch { /* skip non-directory entries */ }
+  }
+  return results.sort((a, b) => b.date.localeCompare(a.date))
+}
+
+function saveScreeningResult(vaultPath: string, result: ScreeningResult): void {
+  const dir = getScreeningDir(vaultPath, result.type)
+  mkdirSync(dir, { recursive: true })
+  writeFileSync(join(dir, `${result.date}.json`), JSON.stringify(result, null, 2), 'utf-8')
 }
 
 // ─── Window ───────────────────────────────────────────────────────────────────

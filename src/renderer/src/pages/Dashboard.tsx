@@ -2,7 +2,10 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useDashboard } from '../hooks/useDashboard'
 import { useConfig } from '../hooks/useConfig'
+import { useScreenings } from '../hooks/useScreenings'
 import WeekChart from '../components/charts/WeekChart'
+import { SCREENING_MAP, isDue } from '../lib/screenings'
+import type { ScreeningFrequency } from '../lib/screenings'
 
 const MOOD_EMOJI = ['', '😞', '😕', '😐', '🙂', '😄']
 
@@ -75,7 +78,14 @@ export default function Dashboard() {
   const navigate = useNavigate()
   const { days, today, hasCheckInToday, loading, syncing, triggerSync, reload } = useDashboard()
   const { config } = useConfig()
+  const { results: screeningResults } = useScreenings()
   const [summary, setSummary] = useState<SummaryState>({ status: 'idle' })
+
+  // Screenings that are currently due
+  const dueScreenings = (config.screeningsEnabled ?? []).filter((id) => {
+    const last = screeningResults.find((r) => r.type === id)
+    return isDue(last?.date ?? null, (config.screeningFrequency ?? 'weekly') as ScreeningFrequency)
+  })
 
   // Auto-sync on load if connected to Oura
   useEffect(() => {
@@ -151,6 +161,28 @@ export default function Dashboard() {
             </div>
           </div>
         )}
+
+        {/* Screening due notifications */}
+        {dueScreenings.map((id) => (
+          <button
+            key={id}
+            onClick={() => navigate(`/screening/${id}`)}
+            className="w-full py-3 px-4 rounded-xl bg-[--color-surface-2] border border-[--color-brand]/40 flex items-center justify-between hover:border-[--color-brand] transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-xl">📋</span>
+              <div className="text-left">
+                <p className="text-sm font-medium">{id} due</p>
+                <p className="text-xs text-[--color-muted]">
+                  {SCREENING_MAP[id]
+                    ? `${SCREENING_MAP[id].questions.length} questions · ~2 min`
+                    : 'Tap to begin'}
+                </p>
+              </div>
+            </div>
+            <span className="text-[--color-muted] text-lg">›</span>
+          </button>
+        ))}
 
         {/* LLM readiness summary — only when enabled in Settings */}
         {config.ollamaSummariesEnabled && summary.status !== 'idle' && (

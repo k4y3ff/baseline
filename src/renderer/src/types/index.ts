@@ -8,6 +8,16 @@ export interface Config {
   summaryText?: string        // cached summary text
   ollamaSummariesEnabled?: boolean
   ollamaModel?: string        // defaults to 'llama3.2'
+  screeningsEnabled?: string[]
+  screeningFrequency?: 'weekly' | 'biweekly' | 'monthly' | 'quarterly'
+}
+
+export interface ScreeningResult {
+  type: string       // e.g. 'PHQ-9'
+  date: string       // YYYY-MM-DD
+  answers: number[]
+  score: number
+  severity: string
 }
 
 export interface OuraRow {
