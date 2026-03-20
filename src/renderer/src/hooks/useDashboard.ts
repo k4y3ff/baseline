@@ -78,6 +78,7 @@ export function useDashboard(numDays = 14) {
         activity_score: num(oura?.activity_score),
         steps: num(oura?.steps),
         calories: ci?.nutrition?.calories ?? null,
+        weight: ci?.weight ?? null,
         phq9_score: null // joined in Analyze from screening results
       }
     })

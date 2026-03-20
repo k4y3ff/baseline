@@ -33,6 +33,9 @@ export default function CheckIn() {
   const [carbs, setCarbs]       = useState('')
   const [fat, setFat]           = useState('')
 
+  // Weight state (only used when weightEnabled)
+  const [weight, setWeight] = useState('')
+
   // Load today's oura data and any existing check-in
   useEffect(() => {
     const load = async () => {
@@ -48,6 +51,7 @@ export default function CheckIn() {
           if (ci.nutrition.carbs    != null) setCarbs(String(ci.nutrition.carbs))
           if (ci.nutrition.fat      != null) setFat(String(ci.nutrition.fat))
         }
+        if (ci.weight != null) setWeight(String(ci.weight))
         setExisting(true)
       }
     }
@@ -80,7 +84,9 @@ export default function CheckIn() {
       fat:      fat      !== '' ? parseFloat(fat)       : undefined,
     } : undefined
 
-    const md = formatCheckIn({ date, mood, energy, notes, nutrition, oura: ouraData })
+    const weightVal = config.weightEnabled && weight !== '' ? parseFloat(weight) : undefined
+
+    const md = formatCheckIn({ date, mood, energy, notes, nutrition, weight: weightVal, oura: ouraData })
     await window.baseline.writeCheckIn(date, md)
     setSaving(false)
     navigate('/dashboard')
@@ -160,6 +166,29 @@ export default function CheckIn() {
             className="w-full px-4 py-3 rounded-xl bg-[--color-surface-2] border border-[--color-border] text-sm outline-none focus:border-[--color-brand] transition-colors resize-none"
           />
         </div>
+
+        {/* Weight — only when enabled in Settings */}
+        {config.weightEnabled && (
+          <div>
+            <label className="text-sm font-medium text-[--color-muted] block mb-2">
+              Weight <span className="font-normal">(optional)</span>
+            </label>
+            <div className="relative">
+              <input
+                type="number"
+                inputMode="decimal"
+                min={0}
+                max={999}
+                step={0.1}
+                placeholder="0.0"
+                value={weight}
+                onChange={(e) => setWeight(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl bg-[--color-surface-2] border border-[--color-border] text-sm outline-none focus:border-[--color-brand] transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              />
+              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-[--color-muted] pointer-events-none">lbs</span>
+            </div>
+          </div>
+        )}
 
         {/* Nutrition — only when enabled in Settings */}
         {config.nutritionEnabled && (

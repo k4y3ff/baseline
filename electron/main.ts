@@ -39,6 +39,7 @@ interface Config {
   chatEnabled?: boolean
   chatHistory?: 'session' | 'daily' | 'persistent'
   nutritionEnabled?: boolean
+  weightEnabled?: boolean
   screeningsEnabled?: string[]
   screeningFrequency?: 'weekly' | 'biweekly' | 'monthly' | 'quarterly'
 }

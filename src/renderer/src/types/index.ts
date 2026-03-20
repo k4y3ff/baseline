@@ -11,6 +11,7 @@ export interface Config {
   chatEnabled?: boolean
   chatHistory?: 'session' | 'daily' | 'persistent'
   nutritionEnabled?: boolean
+  weightEnabled?: boolean
   screeningsEnabled?: string[]
   screeningFrequency?: 'weekly' | 'biweekly' | 'monthly' | 'quarterly'
 }
@@ -50,6 +51,7 @@ export interface CheckIn {
     carbs?: number
     fat?: number
   }
+  weight?: number
   // Oura data embedded in the file (parsed back out)
   oura?: {
     sleep_hours?: number
@@ -70,5 +72,6 @@ export interface DayData {
   activity_score: number | null
   steps: number | null
   calories: number | null
+  weight: number | null
   phq9_score: number | null
 }

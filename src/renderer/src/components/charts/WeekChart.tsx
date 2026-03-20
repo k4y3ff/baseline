@@ -29,6 +29,7 @@ export const CHART_VARS: Record<string, ChartVarDef> = {
   mood:            { label: 'Mood',         unit: '/5',   domain: [0, 5],      color: '#c084fc' },
   energy:          { label: 'Energy',       unit: '/5',   domain: [0, 5],      color: '#fb923c' },
   calories:        { label: 'Calories',     unit: 'kcal', domain: [0, 'auto'], color: '#f472b6' },
+  weight:          { label: 'Weight',       unit: 'lbs',  domain: [0, 'auto'], color: '#a3e635' },
   phq9_score:      { label: 'PHQ-9',        unit: '/27',  domain: [0, 27],     color: '#2dd4bf' },
 }
 
