@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Build output
+out/
+dist/
+
+# electron-vite dev cache
+.vite/
+
+# macOS
+.DS_Store
+
+# Environment / secrets
+.env
+.env.*
+
+# Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+npm-debug.log*
+*.log
+
+# Test vault data (local only)
+*.baseline/

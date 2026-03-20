@@ -1,0 +1,143 @@
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { formatCheckIn, parseCheckIn } from '../lib/checkInFormat'
+import type { OuraRow } from '../types'
+
+const MOOD_LABELS: string[] = ['', '😞', '😕', '😐', '🙂', '😄']
+const ENERGY_LABELS = ['', '🪫', '😴', '⚡', '🔋', '🚀']
+
+function todayStr(): string {
+  return new Date().toISOString().split('T')[0]
+}
+
+export default function CheckIn() {
+  const navigate = useNavigate()
+  const date = todayStr()
+
+  const [mood, setMood] = useState(3)
+  const [energy, setEnergy] = useState(3)
+  const [notes, setNotes] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [existing, setExisting] = useState(false)
+
+  // Load today's oura data and any existing check-in
+  useEffect(() => {
+    const load = async () => {
+      // Load existing check-in if any
+      const md = await window.baseline.readCheckIn(date)
+      if (md) {
+        const ci = parseCheckIn(date, md)
+        setMood(ci.mood)
+        setEnergy(ci.energy)
+        setNotes(ci.notes)
+        setExisting(true)
+      }
+    }
+    load()
+  }, [date])
+
+  const handleSubmit = async () => {
+    setSaving(true)
+
+    // Fetch today's oura data to embed in the file
+    let ouraData: { sleep_hours?: number; hrv_avg?: number; readiness_score?: number } | undefined
+    try {
+      const rows: OuraRow[] = await window.baseline.readOuraCsv()
+      const row = rows.find((r) => r.date === date)
+      if (row) {
+        ouraData = {
+          sleep_hours: row.sleep_hours ? parseFloat(row.sleep_hours) : undefined,
+          hrv_avg: row.hrv_avg ? parseFloat(row.hrv_avg) : undefined,
+          readiness_score: row.readiness_score ? parseInt(row.readiness_score) : undefined
+        }
+      }
+    } catch {
+      // Oura data is optional
+    }
+
+    const md = formatCheckIn({ date, mood, energy, notes, oura: ouraData })
+    await window.baseline.writeCheckIn(date, md)
+    setSaving(false)
+    navigate('/dashboard')
+  }
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="drag-region px-5 pt-10 pb-4">
+        <div className="no-drag">
+          <h1 className="text-xl font-bold">
+            {existing ? 'Edit today\'s log' : 'How are you doing?'}
+          </h1>
+          <p className="text-[--color-muted] text-sm mt-0.5">{date}</p>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-5 flex flex-col gap-6 pb-6">
+        {/* Mood */}
+        <div>
+          <label className="text-sm font-medium text-[--color-muted] block mb-3">Mood</label>
+          <div className="flex gap-2">
+            {[1, 2, 3, 4, 5].map((v) => (
+              <button
+                key={v}
+                onClick={() => setMood(v)}
+                className={`flex-1 flex flex-col items-center gap-1 py-3 rounded-xl border transition-all ${
+                  mood === v
+                    ? 'border-[--color-brand] bg-indigo-500/10'
+                    : 'border-[--color-border] bg-[--color-surface-2] hover:border-[--color-muted]'
+                }`}
+              >
+                <span className="text-2xl">{MOOD_LABELS[v]}</span>
+                <span className="text-[10px] text-[--color-muted]">{v}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Energy */}
+        <div>
+          <label className="text-sm font-medium text-[--color-muted] block mb-3">Energy</label>
+          <div className="flex gap-2">
+            {[1, 2, 3, 4, 5].map((v) => (
+              <button
+                key={v}
+                onClick={() => setEnergy(v)}
+                className={`flex-1 flex flex-col items-center gap-1 py-3 rounded-xl border transition-all ${
+                  energy === v
+                    ? 'border-[--color-brand] bg-indigo-500/10'
+                    : 'border-[--color-border] bg-[--color-surface-2] hover:border-[--color-muted]'
+                }`}
+              >
+                <span className="text-2xl">{ENERGY_LABELS[v]}</span>
+                <span className="text-[10px] text-[--color-muted]">{v}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Notes */}
+        <div>
+          <label className="text-sm font-medium text-[--color-muted] block mb-2">
+            Notes <span className="font-normal">(optional)</span>
+          </label>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Anything worth noting…"
+            rows={4}
+            className="w-full px-4 py-3 rounded-xl bg-[--color-surface-2] border border-[--color-border] text-sm outline-none focus:border-[--color-brand] transition-colors resize-none"
+          />
+        </div>
+
+        <button
+          onClick={handleSubmit}
+          disabled={saving}
+          className="w-full py-3.5 rounded-xl bg-[--color-brand] text-white font-medium disabled:opacity-50 hover:opacity-90 transition-opacity"
+        >
+          {saving ? 'Saving…' : existing ? 'Update log' : 'Save log'}
+        </button>
+      </div>
+    </div>
+  )
+}
