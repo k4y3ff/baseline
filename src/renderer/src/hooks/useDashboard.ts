@@ -71,10 +71,13 @@ export function useDashboard() {
         mood: ci?.mood ?? null,
         energy: ci?.energy ?? null,
         sleep_hours: num(oura?.sleep_hours),
+        sleep_score: num(oura?.sleep_score),
         hrv_avg: num(oura?.hrv_avg),
         readiness_score: num(oura?.readiness_score),
         activity_score: num(oura?.activity_score),
-        steps: num(oura?.steps)
+        steps: num(oura?.steps),
+        calories: ci?.nutrition?.calories ?? null,
+        phq9_score: null // joined in Analyze from screening results
       }
     })
 

@@ -1,12 +1,36 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useDashboard } from '../hooks/useDashboard'
 import { useConfig } from '../hooks/useConfig'
-import WeekChart from '../components/charts/WeekChart'
+import { useScreenings } from '../hooks/useScreenings'
+import WeekChart, { CHART_VARS, CHART_VAR_KEYS } from '../components/charts/WeekChart'
+import type { ChartVarKey } from '../components/charts/WeekChart'
 import type { ChatMessage } from '../types'
+
+const selectCls = 'bg-[--color-surface] border border-[--color-border] rounded-lg px-2 py-1.5 text-xs outline-none focus:border-[--color-brand] transition-colors flex-1 min-w-0'
 
 export default function Analyze() {
   const { days, loading } = useDashboard()
   const { config } = useConfig()
+  const { results: screeningResults } = useScreenings()
+
+  // Variable selection — persisted to localStorage
+  const [varA, setVarA] = useState<ChartVarKey>(
+    () => (localStorage.getItem('analyze-var-a') as ChartVarKey) || 'sleep_hours'
+  )
+  const [varB, setVarB] = useState<ChartVarKey>(
+    () => (localStorage.getItem('analyze-var-b') as ChartVarKey) || 'readiness_score'
+  )
+
+  const changeVarA = (k: ChartVarKey) => { setVarA(k); localStorage.setItem('analyze-var-a', k) }
+  const changeVarB = (k: ChartVarKey) => { setVarB(k); localStorage.setItem('analyze-var-b', k) }
+
+  // Join PHQ-9 scores into the day data by date
+  const chartDays = useMemo(() => {
+    const phq9ByDate = new Map(
+      screeningResults.filter((r) => r.type === 'PHQ-9').map((r) => [r.date, r.score])
+    )
+    return days.map((d) => ({ ...d, phq9_score: phq9ByDate.get(d.date) ?? null }))
+  }, [days, screeningResults])
 
   // ── Chat state ──────────────────────────────────────────────────────────────
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -167,15 +191,38 @@ export default function Analyze() {
 
         {/* 7-day chart */}
         <div className="bg-[--color-surface-2] rounded-xl border border-[--color-border] p-4">
-          <h2 className="text-xs font-semibold text-[--color-muted] uppercase tracking-wider mb-3">
-            Last 7 Days
-          </h2>
+          <div className="flex items-center gap-2 mb-3">
+            <h2 className="text-xs font-semibold text-[--color-muted] uppercase tracking-wider shrink-0">
+              Last 7 Days
+            </h2>
+            <div className="flex items-center gap-1.5 flex-1 min-w-0">
+              <select
+                value={varA}
+                onChange={(e) => changeVarA(e.target.value as ChartVarKey)}
+                className={selectCls}
+              >
+                {CHART_VAR_KEYS.map((k) => (
+                  <option key={k} value={k}>{CHART_VARS[k].label}</option>
+                ))}
+              </select>
+              <span className="text-[10px] text-[--color-muted] shrink-0">vs</span>
+              <select
+                value={varB}
+                onChange={(e) => changeVarB(e.target.value as ChartVarKey)}
+                className={selectCls}
+              >
+                {CHART_VAR_KEYS.map((k) => (
+                  <option key={k} value={k}>{CHART_VARS[k].label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
           {loading ? (
             <div className="h-[180px] flex items-center justify-center text-[--color-muted] text-sm">
               Loading…
             </div>
           ) : (
-            <WeekChart days={days} />
+            <WeekChart days={chartDays} varA={varA} varB={varB} />
           )}
         </div>
       </div>

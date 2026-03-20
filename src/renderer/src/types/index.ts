@@ -64,8 +64,11 @@ export interface DayData {
   mood: number | null
   energy: number | null
   sleep_hours: number | null
+  sleep_score: number | null
   hrv_avg: number | null
   readiness_score: number | null
   activity_score: number | null
   steps: number | null
+  calories: number | null
+  phq9_score: number | null
 }
