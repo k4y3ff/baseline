@@ -10,6 +10,7 @@ export interface Config {
   ollamaModel?: string        // defaults to 'llama3.2'
   chatEnabled?: boolean
   chatHistory?: 'session' | 'daily' | 'persistent'
+  nutritionEnabled?: boolean
   screeningsEnabled?: string[]
   screeningFrequency?: 'weekly' | 'biweekly' | 'monthly' | 'quarterly'
 }
@@ -43,6 +44,12 @@ export interface CheckIn {
   mood: number
   energy: number
   notes: string
+  nutrition?: {
+    calories?: number
+    protein?: number
+    carbs?: number
+    fat?: number
+  }
   // Oura data embedded in the file (parsed back out)
   oura?: {
     sleep_hours?: number

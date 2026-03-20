@@ -38,6 +38,7 @@ interface Config {
   ollamaModel?: string        // defaults to 'llama3.2'
   chatEnabled?: boolean
   chatHistory?: 'session' | 'daily' | 'persistent'
+  nutritionEnabled?: boolean
   screeningsEnabled?: string[]
   screeningFrequency?: 'weekly' | 'biweekly' | 'monthly' | 'quarterly'
 }

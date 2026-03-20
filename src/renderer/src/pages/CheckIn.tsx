@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { formatCheckIn, parseCheckIn } from '../lib/checkInFormat'
+import { useConfig } from '../hooks/useConfig'
 import type { OuraRow } from '../types'
 
 const MOOD_LABELS: string[] = ['', '😞', '😕', '😐', '🙂', '😄']
@@ -18,6 +19,7 @@ export default function CheckIn() {
   const navigate = useNavigate()
   const { date: dateParam } = useParams<{ date?: string }>()
   const date = dateParam ?? todayStr()
+  const { config } = useConfig()
 
   const [mood, setMood] = useState(3)
   const [energy, setEnergy] = useState(3)
@@ -25,16 +27,27 @@ export default function CheckIn() {
   const [saving, setSaving] = useState(false)
   const [existing, setExisting] = useState(false)
 
+  // Nutrition state (only used when nutritionEnabled)
+  const [calories, setCalories] = useState('')
+  const [protein, setProtein]   = useState('')
+  const [carbs, setCarbs]       = useState('')
+  const [fat, setFat]           = useState('')
+
   // Load today's oura data and any existing check-in
   useEffect(() => {
     const load = async () => {
-      // Load existing check-in if any
       const md = await window.baseline.readCheckIn(date)
       if (md) {
         const ci = parseCheckIn(date, md)
         setMood(ci.mood)
         setEnergy(ci.energy)
         setNotes(ci.notes)
+        if (ci.nutrition) {
+          if (ci.nutrition.calories != null) setCalories(String(ci.nutrition.calories))
+          if (ci.nutrition.protein  != null) setProtein(String(ci.nutrition.protein))
+          if (ci.nutrition.carbs    != null) setCarbs(String(ci.nutrition.carbs))
+          if (ci.nutrition.fat      != null) setFat(String(ci.nutrition.fat))
+        }
         setExisting(true)
       }
     }
@@ -60,7 +73,14 @@ export default function CheckIn() {
       // Oura data is optional
     }
 
-    const md = formatCheckIn({ date, mood, energy, notes, oura: ouraData })
+    const nutrition = config.nutritionEnabled ? {
+      calories: calories !== '' ? parseInt(calories)    : undefined,
+      protein:  protein  !== '' ? parseFloat(protein)   : undefined,
+      carbs:    carbs    !== '' ? parseFloat(carbs)     : undefined,
+      fat:      fat      !== '' ? parseFloat(fat)       : undefined,
+    } : undefined
+
+    const md = formatCheckIn({ date, mood, energy, notes, nutrition, oura: ouraData })
     await window.baseline.writeCheckIn(date, md)
     setSaving(false)
     navigate('/dashboard')
@@ -140,6 +160,53 @@ export default function CheckIn() {
             className="w-full px-4 py-3 rounded-xl bg-[--color-surface-2] border border-[--color-border] text-sm outline-none focus:border-[--color-brand] transition-colors resize-none"
           />
         </div>
+
+        {/* Nutrition — only when enabled in Settings */}
+        {config.nutritionEnabled && (
+          <div>
+            <label className="text-sm font-medium text-[--color-muted] block mb-3">
+              Nutrition <span className="font-normal">(optional)</span>
+            </label>
+            <div className="flex flex-col gap-2">
+              {/* Calories — full width */}
+              <div className="relative">
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  max={9999}
+                  placeholder="Calories"
+                  value={calories}
+                  onChange={(e) => setCalories(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl bg-[--color-surface-2] border border-[--color-border] text-sm outline-none focus:border-[--color-brand] transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-[--color-muted] pointer-events-none">kcal</span>
+              </div>
+              {/* Macros — 3 columns */}
+              <div className="grid grid-cols-3 gap-2">
+                {([
+                  { label: 'Protein', value: protein, set: setProtein },
+                  { label: 'Carbs',   value: carbs,   set: setCarbs },
+                  { label: 'Fat',     value: fat,     set: setFat },
+                ] as const).map(({ label, value, set }) => (
+                  <div key={label} className="relative">
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      min={0}
+                      max={999}
+                      placeholder={label}
+                      value={value}
+                      onChange={(e) => set(e.target.value)}
+                      className="w-full px-3 pb-3 pt-3 rounded-xl bg-[--color-surface-2] border border-[--color-border] text-sm outline-none focus:border-[--color-brand] transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[--color-muted] pointer-events-none">g</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         <button
           onClick={handleSubmit}

@@ -11,6 +11,12 @@ import type { CheckIn } from '../types'
  * ## Notes
  * Felt pretty good today.
  *
+ * ## Nutrition
+ * **Calories**: 2100
+ * **Protein**: 150
+ * **Carbs**: 220
+ * **Fat**: 70
+ *
  * ---
  * _Oura: Sleep 7.2h | HRV 52 | Readiness 81_
  */
@@ -26,11 +32,21 @@ export function formatCheckIn(checkIn: CheckIn): string {
     lines.push(checkIn.notes.trim())
   }
 
+  const n = checkIn.nutrition
+  if (n && (n.calories != null || n.protein != null || n.carbs != null || n.fat != null)) {
+    lines.push('')
+    lines.push('## Nutrition')
+    if (n.calories != null) lines.push(`**Calories**: ${n.calories}`)
+    if (n.protein  != null) lines.push(`**Protein**: ${n.protein}`)
+    if (n.carbs    != null) lines.push(`**Carbs**: ${n.carbs}`)
+    if (n.fat      != null) lines.push(`**Fat**: ${n.fat}`)
+  }
+
   if (checkIn.oura) {
     const { sleep_hours, hrv_avg, readiness_score } = checkIn.oura
     const parts: string[] = []
-    if (sleep_hours != null) parts.push(`Sleep ${sleep_hours.toFixed(1)}h`)
-    if (hrv_avg != null) parts.push(`HRV ${hrv_avg}`)
+    if (sleep_hours    != null) parts.push(`Sleep ${sleep_hours.toFixed(1)}h`)
+    if (hrv_avg        != null) parts.push(`HRV ${hrv_avg}`)
     if (readiness_score != null) parts.push(`Readiness ${readiness_score}`)
     if (parts.length > 0) {
       lines.push('')
@@ -52,28 +68,33 @@ export function parseCheckIn(date: string, markdown: string): CheckIn {
   let energy = 3
   let notes = ''
   let inNotes = false
+  let inNutrition = false
+  const nutrition: NonNullable<CheckIn['nutrition']> = {}
 
   for (const line of lines) {
     const moodMatch = line.match(/\*\*Mood\*\*:\s*(\d)\/5/)
-    if (moodMatch) {
-      mood = parseInt(moodMatch[1])
-      inNotes = false
-    }
+    if (moodMatch) { mood = parseInt(moodMatch[1]); inNotes = false; inNutrition = false }
+
     const energyMatch = line.match(/\*\*Energy\*\*:\s*(\d)\/5/)
-    if (energyMatch) {
-      energy = parseInt(energyMatch[1])
-      inNotes = false
-    }
-    if (line === '## Notes') {
-      inNotes = true
-      continue
-    }
-    if (line === '---') {
-      inNotes = false
-      continue
-    }
+    if (energyMatch) { energy = parseInt(energyMatch[1]); inNotes = false; inNutrition = false }
+
+    if (line === '## Notes')     { inNotes = true;  inNutrition = false; continue }
+    if (line === '## Nutrition') { inNutrition = true; inNotes = false; continue }
+    if (line === '---')          { inNotes = false; inNutrition = false; continue }
+
     if (inNotes && line.trim()) {
       notes += (notes ? '\n' : '') + line
+    }
+
+    if (inNutrition) {
+      const cal  = line.match(/\*\*Calories\*\*:\s*(\d+)/)
+      const prot = line.match(/\*\*Protein\*\*:\s*([\d.]+)/)
+      const carb = line.match(/\*\*Carbs\*\*:\s*([\d.]+)/)
+      const fat  = line.match(/\*\*Fat\*\*:\s*([\d.]+)/)
+      if (cal)  nutrition.calories = parseInt(cal[1])
+      if (prot) nutrition.protein  = parseFloat(prot[1])
+      if (carb) nutrition.carbs    = parseFloat(carb[1])
+      if (fat)  nutrition.fat      = parseFloat(fat[1])
     }
   }
 
@@ -93,5 +114,6 @@ export function parseCheckIn(date: string, markdown: string): CheckIn {
     }
   }
 
-  return { date, mood, energy, notes, oura }
+  const hasNutrition = Object.keys(nutrition).length > 0
+  return { date, mood, energy, notes, nutrition: hasNutrition ? nutrition : undefined, oura }
 }

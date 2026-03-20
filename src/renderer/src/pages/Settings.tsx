@@ -342,6 +342,35 @@ export default function Settings() {
           </div>
         </section>
 
+        {/* Nutrition */}
+        <section className="flex flex-col gap-3">
+          <h2 className="text-xs font-semibold text-[--color-muted] uppercase tracking-wider">
+            Nutrition
+          </h2>
+          <div className="bg-[--color-surface-2] rounded-xl border border-[--color-border] p-4">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium">Calorie &amp; macro tracking</p>
+                <p className="text-xs text-[--color-muted] mt-0.5">
+                  Log calories, protein, carbs, and fat in each daily check-in
+                </p>
+              </div>
+              <button
+                role="switch"
+                aria-checked={config.nutritionEnabled ?? false}
+                onClick={() => save({ nutritionEnabled: !config.nutritionEnabled })}
+                className={`relative shrink-0 w-11 h-6 rounded-full transition-colors ${
+                  config.nutritionEnabled ? 'bg-[--color-brand]' : 'bg-[--color-border]'
+                }`}
+              >
+                <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
+                  config.nutritionEnabled ? 'translate-x-5' : 'translate-x-0'
+                }`} />
+              </button>
+            </div>
+          </div>
+        </section>
+
         {/* Screenings */}
         <section className="flex flex-col gap-3">
           <h2 className="text-xs font-semibold text-[--color-muted] uppercase tracking-wider">
