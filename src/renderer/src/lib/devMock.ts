@@ -98,6 +98,16 @@ export function installDevMock(): void {
       mockCheckIns[date] = content
     },
 
-    listCheckIns: async () => Object.keys(mockCheckIns)
+    listCheckIns: async () => Object.keys(mockCheckIns),
+
+    checkOllama: async () => {
+      await new Promise((r) => setTimeout(r, 600))
+      return { available: true }
+    },
+
+    generateSummary: async () => {
+      await new Promise((r) => setTimeout(r, 1800))
+      return "Yesterday's solid 8.1h of sleep and high HRV of 58 have set you up well — your readiness is strong today. Your energy and mood were both at their peak yesterday, which is a great sign heading into today. Focus on keeping your activity level up and you should feel great."
+    }
   }
 }

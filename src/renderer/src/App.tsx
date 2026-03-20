@@ -39,6 +39,7 @@ export default function App() {
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/check-in" element={<CheckIn />} />
+            <Route path="/check-in/:date" element={<CheckIn />} />
             <Route path="/settings" element={<Settings />} />
           </Routes>
         </div>

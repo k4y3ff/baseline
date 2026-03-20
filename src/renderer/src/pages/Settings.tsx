@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useConfig } from '../hooks/useConfig'
 
 export default function Settings() {
@@ -12,6 +12,45 @@ export default function Settings() {
   const [syncResult, setSyncResult] = useState<'ok' | 'error' | null>(null)
 
   const isConnected = Boolean(config.ouraAccessToken)
+
+  // ── Ollama state ──
+  const [ollamaChecking, setOllamaChecking] = useState(false)
+  const [ollamaAvailable, setOllamaAvailable] = useState<boolean | null>(null)
+  const [ollamaCheckError, setOllamaCheckError] = useState<string | null>(null)
+  const [ollamaModel, setOllamaModel] = useState(config.ollamaModel ?? 'llama3.2')
+
+  // Sync model field when config loads
+  useEffect(() => {
+    setOllamaModel(config.ollamaModel ?? 'llama3.2')
+  }, [config.ollamaModel])
+
+  const checkOllama = useCallback(async () => {
+    setOllamaChecking(true)
+    setOllamaCheckError(null)
+    try {
+      const { available } = await window.baseline.checkOllama()
+      setOllamaAvailable(available)
+      if (available && !config.ollamaSummariesEnabled) {
+        await save({ ollamaSummariesEnabled: true, ollamaModel: ollamaModel.trim() || 'llama3.2' })
+      }
+    } catch (err) {
+      setOllamaCheckError(err instanceof Error ? err.message : 'Check failed — try restarting the app.')
+    } finally {
+      setOllamaChecking(false)
+    }
+  }, [config.ollamaSummariesEnabled, ollamaModel, save])
+
+  const toggleSummaries = useCallback(async (enabled: boolean) => {
+    try {
+      await save({ ollamaSummariesEnabled: enabled })
+    } catch (err) {
+      console.error('Failed to save Ollama setting:', err)
+    }
+  }, [save])
+
+  const saveModel = async () => {
+    await save({ ollamaModel: ollamaModel.trim() || 'llama3.2' })
+  }
 
   // Subscribe to OAuth result pushed from main process
   useEffect(() => {
@@ -179,6 +218,94 @@ export default function Settings() {
               )}
             </div>
           )}
+        </section>
+
+        {/* Ollama summaries */}
+        <section className="flex flex-col gap-3">
+          <h2 className="text-xs font-semibold text-[--color-muted] uppercase tracking-wider">
+            AI Summaries
+          </h2>
+          <div className="bg-[--color-surface-2] rounded-xl border border-[--color-border] p-4 flex flex-col gap-4">
+            {/* Toggle row */}
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium">Daily readiness summary</p>
+                <p className="text-xs text-[--color-muted] mt-0.5">
+                  Generated locally via Ollama
+                </p>
+              </div>
+              <button
+                role="switch"
+                aria-checked={config.ollamaSummariesEnabled ?? false}
+                disabled={!config.ollamaSummariesEnabled && ollamaAvailable !== true}
+                onClick={() => toggleSummaries(!config.ollamaSummariesEnabled)}
+                className={`relative shrink-0 w-11 h-6 rounded-full transition-colors ${
+                  config.ollamaSummariesEnabled
+                    ? 'bg-[--color-brand]'
+                    : 'bg-[--color-border]'
+                } disabled:opacity-40`}
+              >
+                <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
+                  config.ollamaSummariesEnabled ? 'translate-x-5' : 'translate-x-0'
+                }`} />
+              </button>
+            </div>
+
+            {/* Not yet detected */}
+            {!config.ollamaSummariesEnabled && (
+              <div className="flex flex-col gap-2">
+                {ollamaAvailable === false && (
+                  <p className="text-xs text-[--color-muted] leading-relaxed">
+                    Ollama was not found.{' '}
+                    <a
+                      href="https://ollama.com"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-indigo-400 underline"
+                    >
+                      Install it from ollama.com
+                    </a>
+                    , then check again.
+                  </p>
+                )}
+                {ollamaAvailable === null && !ollamaCheckError && (
+                  <p className="text-xs text-[--color-muted]">
+                    Ollama is required to generate summaries.
+                  </p>
+                )}
+                {ollamaCheckError && (
+                  <p className="text-xs text-red-400 leading-relaxed">{ollamaCheckError}</p>
+                )}
+                <button
+                  onClick={checkOllama}
+                  disabled={ollamaChecking}
+                  className="w-full py-2 rounded-lg border border-[--color-border] text-sm hover:bg-white/5 transition-colors disabled:opacity-40"
+                >
+                  {ollamaChecking ? 'Checking…' : 'Check for Ollama'}
+                </button>
+              </div>
+            )}
+
+            {/* Model picker — shown when enabled */}
+            {config.ollamaSummariesEnabled && (
+              <div className="flex flex-col gap-2">
+                <label className="text-xs text-[--color-muted]">Model</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={ollamaModel}
+                    onChange={(e) => setOllamaModel(e.target.value)}
+                    onBlur={saveModel}
+                    placeholder="llama3.2"
+                    className="flex-1 px-3 py-2 rounded-lg bg-[#111] border border-[--color-border] text-sm outline-none focus:border-[--color-brand] transition-colors"
+                  />
+                </div>
+                <p className="text-[10px] text-[--color-muted]">
+                  Must be pulled via <span className="font-mono">ollama pull {ollamaModel || 'llama3.2'}</span>
+                </p>
+              </div>
+            )}
+          </div>
         </section>
 
         {/* About */}

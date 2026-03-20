@@ -52,7 +52,11 @@ const baseline = {
   readCheckIn: (date: string): Promise<string | null> => ipcRenderer.invoke('read-check-in', date),
   writeCheckIn: (date: string, content: string): Promise<void> =>
     ipcRenderer.invoke('write-check-in', date, content),
-  listCheckIns: (): Promise<string[]> => ipcRenderer.invoke('list-check-ins')
+  listCheckIns: (): Promise<string[]> => ipcRenderer.invoke('list-check-ins'),
+
+  // Ollama
+  checkOllama: (): Promise<{ available: boolean }> => ipcRenderer.invoke('check-ollama'),
+  generateSummary: (): Promise<string> => ipcRenderer.invoke('generate-summary')
 }
 
 if (process.contextIsolated) {

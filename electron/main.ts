@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron'
 import { join } from 'path'
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync } from 'fs'
 import { createServer } from 'http'
+import { spawn } from 'child_process'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import Papa from 'papaparse'
 
@@ -31,6 +32,10 @@ interface Config {
   ouraAccessToken?: string
   ouraRefreshToken?: string
   ouraTokenExpiresAt?: number // Unix ms timestamp
+  summaryDate?: string        // YYYY-MM-DD of the last generated summary
+  summaryText?: string        // cached summary text
+  ollamaSummariesEnabled?: boolean
+  ollamaModel?: string        // defaults to 'llama3.2'
 }
 
 function getConfigPath(vaultPath: string): string {
@@ -288,6 +293,136 @@ async function syncOura(vaultPath: string, days = 14): Promise<OuraRow[]> {
   return rows
 }
 
+// ─── Ollama / LLM summary ─────────────────────────────────────────────────────
+const OLLAMA_BASE = 'http://localhost:11434'
+const OLLAMA_MODEL = 'llama3.2'
+
+async function ollamaRunning(): Promise<boolean> {
+  try {
+    const res = await fetch(OLLAMA_BASE)
+    return res.status < 500
+  } catch {
+    return false
+  }
+}
+
+async function ensureOllama(): Promise<void> {
+  if (await ollamaRunning()) return
+
+  // Spawn ollama serve, but listen for errors so ENOENT (not installed) doesn't
+  // become an uncaught exception that crashes the main process.
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn('ollama', ['serve'], { detached: true, stdio: 'ignore' })
+
+    child.on('error', (err: NodeJS.ErrnoException) => {
+      if (err.code === 'ENOENT') {
+        reject(new Error('Ollama is not installed. Download it from https://ollama.com'))
+      } else {
+        reject(new Error(`Failed to start Ollama: ${err.message}`))
+      }
+    })
+
+    // If no error fires within 300 ms the process launched successfully
+    setTimeout(() => { child.unref(); resolve() }, 300)
+  })
+
+  // Wait up to 15 s for it to respond
+  const deadline = Date.now() + 15_000
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 600))
+    if (await ollamaRunning()) return
+  }
+  throw new Error('Ollama started but is not responding. Try running "ollama serve" in a terminal.')
+}
+
+function localDateStr(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+async function generateDailySummary(vaultPath: string): Promise<string> {
+  const config = readConfig(vaultPath)
+  const model = config.ollamaModel?.trim() || OLLAMA_MODEL
+
+  const today = localDateStr(new Date())
+  const yesterdayDate = new Date()
+  yesterdayDate.setDate(yesterdayDate.getDate() - 1)
+  const yesterday = localDateStr(yesterdayDate)
+
+  // Check cache first (config already read above)
+  if (config.summaryDate === today && config.summaryText) {
+    return config.summaryText
+  }
+
+  await ensureOllama()
+
+  // Gather context from CSV
+  const rows = readOuraCsv(vaultPath)
+  const rowMap = new Map(rows.map((r) => [r.date, r]))
+  const yd = rowMap.get(yesterday)
+  const td = rowMap.get(today)
+
+  // Gather yesterday's check-in
+  const ciPath = join(vaultPath, 'check-ins', `${yesterday}.md`)
+  let ciText = ''
+  if (existsSync(ciPath)) {
+    ciText = readFileSync(ciPath, 'utf-8')
+  }
+  // Parse mood/energy/notes out of the markdown (simple regex)
+  const moodMatch = ciText.match(/mood:\s*(\d)/i)
+  const energyMatch = ciText.match(/energy:\s*(\d)/i)
+  const notesMatch = ciText.match(/##\s*Notes\s*\n+([\s\S]*?)(?:\n##|$)/i)
+  const ciMood = moodMatch ? moodMatch[1] : null
+  const ciEnergy = energyMatch ? energyMatch[1] : null
+  const ciNotes = notesMatch ? notesMatch[1].trim() : null
+
+  // Build prompt
+  const lines: string[] = [
+    'You are a concise wellness coach. Write a 2–3 sentence readiness summary for today based on the data below.',
+    'Be warm, specific, and practical. Do not use bullet points or headers. Plain prose only.',
+    '',
+    `Yesterday (${yesterday}):`,
+  ]
+  if (yd) {
+    if (yd.sleep_hours) lines.push(`- Sleep: ${yd.sleep_hours}h (score ${yd.sleep_score || 'n/a'})`)
+    if (yd.hrv_avg)     lines.push(`- HRV balance score: ${yd.hrv_avg}`)
+    if (yd.readiness_score) lines.push(`- Readiness: ${yd.readiness_score}`)
+    if (yd.activity_score)  lines.push(`- Activity: ${yd.activity_score}, Steps: ${yd.steps || 'n/a'}`)
+  } else {
+    lines.push('- No Oura data available for yesterday.')
+  }
+  if (ciMood)   lines.push(`- Mood: ${ciMood}/5, Energy: ${ciEnergy ?? 'n/a'}/5`)
+  if (ciNotes)  lines.push(`- Notes: "${ciNotes}"`)
+
+  lines.push('', `Today (${today}):`)
+  if (td) {
+    if (td.readiness_score) lines.push(`- Readiness: ${td.readiness_score}`)
+    if (td.activity_score)  lines.push(`- Activity score: ${td.activity_score}`)
+    if (td.sleep_hours)     lines.push(`- Sleep: ${td.sleep_hours}h`)
+  } else {
+    lines.push("- Today's data not yet synced.")
+  }
+
+  lines.push('', 'Summary:')
+  const prompt = lines.join('\n')
+
+  const res = await fetch(`${OLLAMA_BASE}/api/generate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model, prompt, stream: false })
+  })
+
+  if (!res.ok) throw new Error(`Ollama API error ${res.status}`)
+  const json = (await res.json()) as { response: string }
+  const summary = json.response.trim()
+
+  // Cache for the rest of the day
+  writeConfig(vaultPath, { ...config, summaryDate: today, summaryText: summary })
+  return summary
+}
+
 // ─── Check-in files ───────────────────────────────────────────────────────────
 function getCheckInPath(vaultPath: string, date: string): string {
   return join(vaultPath, 'check-ins', `${date}.md`)
@@ -366,7 +501,8 @@ function registerIpcHandlers(): void {
     'read-config', 'write-config',
     'start-oura-auth', 'disconnect-oura',
     'read-oura-csv', 'sync-oura',
-    'read-check-in', 'write-check-in', 'list-check-ins'
+    'read-check-in', 'write-check-in', 'list-check-ins',
+    'check-ollama', 'generate-summary'
   ]
   for (const ch of channels) ipcMain.removeHandler(ch)
 
@@ -506,6 +642,22 @@ function registerIpcHandlers(): void {
     const vaultPath = getVaultPath()
     if (!vaultPath) return []
     return listCheckIns(vaultPath)
+  })
+
+  // Ollama installation check (runs `ollama --version`; does NOT start the server)
+  ipcMain.handle('check-ollama', (): Promise<{ available: boolean }> => {
+    return new Promise((resolve) => {
+      const child = spawn('ollama', ['--version'], { stdio: 'ignore' })
+      child.on('error', () => resolve({ available: false }))
+      child.on('exit', (code) => resolve({ available: code === 0 }))
+    })
+  })
+
+  // LLM summary
+  ipcMain.handle('generate-summary', async () => {
+    const vaultPath = getVaultPath()
+    if (!vaultPath) throw new Error('No vault path set')
+    return generateDailySummary(vaultPath)
   })
 }
 

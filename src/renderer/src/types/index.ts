@@ -4,6 +4,10 @@ export interface Config {
   ouraAccessToken?: string
   ouraRefreshToken?: string
   ouraTokenExpiresAt?: number // Unix ms timestamp
+  summaryDate?: string        // YYYY-MM-DD of last generated summary
+  summaryText?: string        // cached summary text
+  ollamaSummariesEnabled?: boolean
+  ollamaModel?: string        // defaults to 'llama3.2'
 }
 
 export interface OuraRow {

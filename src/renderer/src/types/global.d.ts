@@ -16,6 +16,8 @@ declare global {
       readCheckIn(date: string): Promise<string | null>
       writeCheckIn(date: string, content: string): Promise<void>
       listCheckIns(): Promise<string[]>
+      checkOllama(): Promise<{ available: boolean }>
+      generateSummary(): Promise<string>
     }
   }
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { formatCheckIn, parseCheckIn } from '../lib/checkInFormat'
 import type { OuraRow } from '../types'
 
@@ -7,12 +7,17 @@ const MOOD_LABELS: string[] = ['', '😞', '😕', '😐', '🙂', '😄']
 const ENERGY_LABELS = ['', '🪫', '😴', '⚡', '🔋', '🚀']
 
 function todayStr(): string {
-  return new Date().toISOString().split('T')[0]
+  const d = new Date()
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
 }
 
 export default function CheckIn() {
   const navigate = useNavigate()
-  const date = todayStr()
+  const { date: dateParam } = useParams<{ date?: string }>()
+  const date = dateParam ?? todayStr()
 
   const [mood, setMood] = useState(3)
   const [energy, setEnergy] = useState(3)
@@ -67,9 +72,15 @@ export default function CheckIn() {
       <div className="drag-region px-5 pt-10 pb-4">
         <div className="no-drag">
           <h1 className="text-xl font-bold">
-            {existing ? 'Edit today\'s log' : 'How are you doing?'}
+            {existing
+              ? `Edit log`
+              : date === todayStr() ? 'How are you doing?' : 'Log this day'}
           </h1>
-          <p className="text-[--color-muted] text-sm mt-0.5">{date}</p>
+          <p className="text-[--color-muted] text-sm mt-0.5">
+            {new Date(date + 'T12:00:00').toLocaleDateString('en-US', {
+              weekday: 'long', month: 'long', day: 'numeric'
+            })}
+          </p>
         </div>
       </div>
 
