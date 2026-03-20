@@ -3,6 +3,7 @@ import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import Setup from './pages/Setup'
 import Dashboard from './pages/Dashboard'
 import CheckIn from './pages/CheckIn'
+import History from './pages/History'
 import Settings from './pages/Settings'
 import Nav from './components/ui/Nav'
 
@@ -40,6 +41,7 @@ export default function App() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/check-in" element={<CheckIn />} />
             <Route path="/check-in/:date" element={<CheckIn />} />
+            <Route path="/history" element={<History />} />
             <Route path="/settings" element={<Settings />} />
           </Routes>
         </div>
