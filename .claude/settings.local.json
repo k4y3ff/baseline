@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(npx electron-vite:*)",
-      "WebFetch(domain:cloud.ouraring.com)"
+      "WebFetch(domain:cloud.ouraring.com)",
+      "WebFetch(domain:developers.ouraring.com)"
     ]
   }
 }

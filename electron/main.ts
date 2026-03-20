@@ -228,34 +228,48 @@ async function syncOura(vaultPath: string, days = 14): Promise<OuraRow[]> {
   const endDate = formatDate(tomorrow)
   const startDate = formatDate(new Date(Date.now() - days * 86400000))
 
-  type SleepDay = { day: string; score: number; contributors?: { total_sleep?: number } }
+  // daily_sleep  → sleep score only (contributors.total_sleep is a 1–100 score, NOT seconds)
+  // sleep         → session-level; total_sleep_duration is actual seconds; sum "long_sleep" per day
+  // daily_readiness → readiness score + hrv_balance contributor score
+  // daily_activity  → activity score + steps
+  type DailySleepDay = { day: string; score: number }
+  type SleepSession = { day: string; total_sleep_duration: number; type: string }
   type ReadinessDay = { day: string; score: number; contributors?: { hrv_balance?: number } }
   type ActivityDay = { day: string; score: number; steps: number }
 
-  const [sleepData, readinessData, activityData] = await Promise.all([
-    fetchOura('daily_sleep', accessToken, startDate, endDate) as Promise<SleepDay[]>,
+  const [dailySleepData, sleepSessionData, readinessData, activityData] = await Promise.all([
+    fetchOura('daily_sleep', accessToken, startDate, endDate) as Promise<DailySleepDay[]>,
+    fetchOura('sleep', accessToken, startDate, endDate) as Promise<SleepSession[]>,
     fetchOura('daily_readiness', accessToken, startDate, endDate) as Promise<ReadinessDay[]>,
     fetchOura('daily_activity', accessToken, startDate, endDate) as Promise<ActivityDay[]>
   ])
 
-  // Union all dates from all three sources so a day isn't dropped just because
+  // Sum all non-nap sleep sessions per day to get total sleep hours.
+  const sleepSecByDay = new Map<string, number>()
+  for (const s of sleepSessionData) {
+    if (s.type === 'deleted_sleep') continue
+    sleepSecByDay.set(s.day, (sleepSecByDay.get(s.day) ?? 0) + (s.total_sleep_duration ?? 0))
+  }
+
+  // Union all dates from all four sources so a day isn't dropped just because
   // one metric (e.g. readiness) isn't computed yet.
-  const sleepMap = new Map(sleepData.map((d) => [d.day, d]))
+  const dailySleepMap = new Map(dailySleepData.map((d) => [d.day, d]))
   const readinessMap = new Map(readinessData.map((d) => [d.day, d]))
   const activityMap = new Map(activityData.map((d) => [d.day, d]))
 
   const allDays = new Set([
-    ...sleepData.map((d) => d.day),
+    ...dailySleepData.map((d) => d.day),
+    ...sleepSessionData.map((d) => d.day),
     ...readinessData.map((d) => d.day),
     ...activityData.map((d) => d.day)
   ])
 
   const syncedAt = new Date().toISOString()
   const rows: OuraRow[] = Array.from(allDays).map((day) => {
-    const sleep = sleepMap.get(day)
+    const sleep = dailySleepMap.get(day)
     const readiness = readinessMap.get(day)
     const activity = activityMap.get(day)
-    const sleepSec = sleep?.contributors?.total_sleep ?? 0
+    const sleepSec = sleepSecByDay.get(day) ?? 0
     const sleepHours = sleepSec > 0 ? (sleepSec / 3600).toFixed(1) : ''
     const hrv = readiness?.contributors?.hrv_balance
     return {
