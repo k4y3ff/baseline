@@ -7,6 +7,7 @@ export default function Settings() {
   const [clientSecret, setClientSecret] = useState('')
   const [connecting, setConnecting] = useState(false)
   const [connectError, setConnectError] = useState<string | null>(null)
+  const [authUrl, setAuthUrl] = useState<string | null>(null)
   const [syncing, setSyncing] = useState(false)
   const [syncResult, setSyncResult] = useState<'ok' | 'error' | null>(null)
 
@@ -16,6 +17,7 @@ export default function Settings() {
   useEffect(() => {
     const unsub = window.baseline.onOuraAuthResult(async (success, error) => {
       setConnecting(false)
+      setAuthUrl(null)
       if (success) {
         setConnectError(null)
         await reload()
@@ -32,8 +34,14 @@ export default function Settings() {
     if (!id || !secret) return
     setConnecting(true)
     setConnectError(null)
-    // Opens browser; result arrives via onOuraAuthResult
-    await window.baseline.startOuraAuth(id, secret)
+    try {
+      // Opens browser; result arrives via onOuraAuthResult
+      const url = await window.baseline.startOuraAuth(id, secret)
+      setAuthUrl(url)
+    } catch (err) {
+      setConnecting(false)
+      setConnectError(err instanceof Error ? err.message : 'Failed to start authorization')
+    }
   }
 
   const disconnect = async () => {
@@ -145,9 +153,28 @@ export default function Settings() {
               {connectError && (
                 <p className="text-red-400 text-xs text-center">{connectError}</p>
               )}
-              {connecting && (
+              {connecting && authUrl && (
+                <div className="flex flex-col gap-2">
+                  <p className="text-[--color-muted] text-xs text-center">
+                    If your browser didn't open,{' '}
+                    <a
+                      href={authUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-indigo-400 underline"
+                    >
+                      click here to authorize
+                    </a>
+                    .
+                  </p>
+                  <p className="text-[--color-muted] text-xs text-center break-all select-all">
+                    {authUrl}
+                  </p>
+                </div>
+              )}
+              {connecting && !authUrl && (
                 <p className="text-[--color-muted] text-xs text-center">
-                  Authorize in your browser, then return here.
+                  Opening browser…
                 </p>
               )}
             </div>

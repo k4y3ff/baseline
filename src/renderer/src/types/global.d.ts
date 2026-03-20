@@ -8,7 +8,7 @@ declare global {
       setupVault(vaultPath: string): Promise<void>
       readConfig(): Promise<Config>
       writeConfig(config: Config): Promise<void>
-      startOuraAuth(clientId: string, clientSecret: string): Promise<void>
+      startOuraAuth(clientId: string, clientSecret: string): Promise<string>
       disconnectOura(): Promise<void>
       onOuraAuthResult(cb: (success: boolean, error?: string) => void): () => void
       readOuraCsv(): Promise<OuraRow[]>

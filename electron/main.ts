@@ -57,17 +57,19 @@ function writeConfig(vaultPath: string, config: Config): void {
 const OURA_AUTH_URL = 'https://cloud.ouraring.com/oauth/authorize'
 const OURA_TOKEN_URL = 'https://api.ouraring.com/oauth/token'
 
-// Two redirect URI strategies (RFC 8252 for native apps):
-//   1. Custom scheme — register "baseline://oauth/callback" in the Oura portal
-//   2. Loopback      — register "http://127.0.0.1" in the Oura portal (any port accepted)
-const CUSTOM_SCHEME_REDIRECT = 'baseline://oauth/callback'
+// Redirect URI: http://localhost:35791/callback
+// Register exactly "http://localhost:35791/callback" in the Oura OAuth app portal.
+const LOOPBACK_PORT = 35791
+const LOOPBACK_REDIRECT = `http://localhost:${LOOPBACK_PORT}/callback`
 
 function buildAuthUrl(clientId: string, redirectUri: string): string {
+  const state = require('crypto').randomBytes(16).toString('hex')
   const params = new URLSearchParams({
     response_type: 'code',
     client_id: clientId,
     redirect_uri: redirectUri,
-    scope: 'daily'
+    scope: 'daily',
+    state
   })
   return `${OURA_AUTH_URL}?${params}`
 }
@@ -192,8 +194,12 @@ function upsertOuraRows(vaultPath: string, newRows: OuraRow[]): void {
 }
 
 // ─── Oura data sync ───────────────────────────────────────────────────────────
+// Use local calendar date, not UTC — Oura keys data by the user's local date.
 function formatDate(d: Date): string {
-  return d.toISOString().split('T')[0]
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
 }
 
 async function fetchOura(
@@ -216,7 +222,10 @@ async function fetchOura(
 async function syncOura(vaultPath: string, days = 14): Promise<OuraRow[]> {
   const accessToken = await getValidAccessToken(vaultPath)
 
-  const endDate = formatDate(new Date())
+  // end_date is tomorrow (local) so today's data is always within range
+  const tomorrow = new Date()
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  const endDate = formatDate(tomorrow)
   const startDate = formatDate(new Date(Date.now() - days * 86400000))
 
   type SleepDay = { day: string; score: number; contributors?: { total_sleep?: number } }
@@ -229,24 +238,35 @@ async function syncOura(vaultPath: string, days = 14): Promise<OuraRow[]> {
     fetchOura('daily_activity', accessToken, startDate, endDate) as Promise<ActivityDay[]>
   ])
 
+  // Union all dates from all three sources so a day isn't dropped just because
+  // one metric (e.g. readiness) isn't computed yet.
   const sleepMap = new Map(sleepData.map((d) => [d.day, d]))
+  const readinessMap = new Map(readinessData.map((d) => [d.day, d]))
   const activityMap = new Map(activityData.map((d) => [d.day, d]))
 
-  const rows: OuraRow[] = readinessData.map((r) => {
-    const sleep = sleepMap.get(r.day)
-    const activity = activityMap.get(r.day)
+  const allDays = new Set([
+    ...sleepData.map((d) => d.day),
+    ...readinessData.map((d) => d.day),
+    ...activityData.map((d) => d.day)
+  ])
+
+  const syncedAt = new Date().toISOString()
+  const rows: OuraRow[] = Array.from(allDays).map((day) => {
+    const sleep = sleepMap.get(day)
+    const readiness = readinessMap.get(day)
+    const activity = activityMap.get(day)
     const sleepSec = sleep?.contributors?.total_sleep ?? 0
     const sleepHours = sleepSec > 0 ? (sleepSec / 3600).toFixed(1) : ''
-    const hrv = r.contributors?.hrv_balance ?? ''
+    const hrv = readiness?.contributors?.hrv_balance
     return {
-      date: r.day,
+      date: day,
       sleep_score: sleep?.score != null ? String(sleep.score) : '',
       sleep_hours: sleepHours,
-      hrv_avg: hrv !== '' ? String(hrv) : '',
-      readiness_score: r.score != null ? String(r.score) : '',
+      hrv_avg: hrv != null ? String(hrv) : '',
+      readiness_score: readiness?.score != null ? String(readiness.score) : '',
       activity_score: activity?.score != null ? String(activity.score) : '',
       steps: activity?.steps != null ? String(activity.steps) : '',
-      synced_at: new Date().toISOString()
+      synced_at: syncedAt
     }
   })
 
@@ -308,7 +328,7 @@ async function handleOAuthCallback(url: string): Promise<void> {
       code,
       config.ouraClientId,
       config.ouraClientSecret,
-      CUSTOM_SCHEME_REDIRECT
+      LOOPBACK_REDIRECT
     )
     writeConfig(vaultPath, {
       ...config,
@@ -326,6 +346,16 @@ async function handleOAuthCallback(url: string): Promise<void> {
 
 // ─── IPC handlers ─────────────────────────────────────────────────────────────
 function registerIpcHandlers(): void {
+  // Remove any previously registered handlers (safe for HMR restarts)
+  const channels = [
+    'get-vault-path', 'pick-folder', 'setup-vault',
+    'read-config', 'write-config',
+    'start-oura-auth', 'disconnect-oura',
+    'read-oura-csv', 'sync-oura',
+    'read-check-in', 'write-check-in', 'list-check-ins'
+  ]
+  for (const ch of channels) ipcMain.removeHandler(ch)
+
   // Vault setup
   ipcMain.handle('get-vault-path', () => getVaultPath())
 
@@ -355,10 +385,8 @@ function registerIpcHandlers(): void {
     writeConfig(vaultPath, config)
   })
 
-  // Oura OAuth — loopback server (RFC 8252 §7.3)
-  // Register "http://127.0.0.1" as the redirect URI in the Oura portal.
-  // A temporary HTTP server starts on a random port; Oura will redirect to it
-  // after the user approves. No custom URI scheme or hosted server required.
+  // Oura OAuth — fixed-port loopback server
+  // Register exactly "http://localhost:35791/callback" in the Oura OAuth app portal.
   ipcMain.handle('start-oura-auth', async (_e, clientId: string, clientSecret: string) => {
     const vaultPath = getVaultPath()
     if (!vaultPath) throw new Error('No vault path set')
@@ -366,23 +394,8 @@ function registerIpcHandlers(): void {
     const config = readConfig(vaultPath)
     writeConfig(vaultPath, { ...config, ouraClientId: clientId, ouraClientSecret: clientSecret })
 
-    // Start loopback server and open browser
-    const port = await new Promise<number>((resolve, reject) => {
-      const srv = createServer().listen(0, '127.0.0.1', () => {
-        const p = (srv.address() as { port: number }).port
-        srv.close(() => resolve(p))
-      })
-      srv.on('error', reject)
-    })
-
-    const redirectUri = `http://127.0.0.1:${port}`
-
-    // Open auth URL in the user's browser
-    shell.openExternal(buildAuthUrl(clientId, redirectUri))
-
-    // Now start the real server on that port to catch the redirect
-    createServer((req, res) => {
-      const url = new URL(req.url ?? '/', `http://127.0.0.1:${port}`)
+    const server = createServer((req, res) => {
+      const url = new URL(req.url ?? '/', LOOPBACK_REDIRECT)
       const code = url.searchParams.get('code')
       const error = url.searchParams.get('error')
 
@@ -394,8 +407,10 @@ function registerIpcHandlers(): void {
         `</body></html>`
       )
 
+      server.close()
+
       if (code) {
-        exchangeCode(code, clientId, clientSecret, redirectUri)
+        exchangeCode(code, clientId, clientSecret, LOOPBACK_REDIRECT)
           .then((tokens) => {
             const latest = readConfig(vaultPath)
             writeConfig(vaultPath, {
@@ -406,22 +421,35 @@ function registerIpcHandlers(): void {
             })
             mainWindow?.webContents.send('oura-auth-result', true)
           })
-          .catch((err) => {
+          .catch((err: Error) => {
             mainWindow?.webContents.send('oura-auth-result', false, err.message)
           })
       } else {
         mainWindow?.webContents.send('oura-auth-result', false, error ?? 'No code received')
       }
     })
-      .listen(port, '127.0.0.1')
-      .on('error', (err) => {
-        mainWindow?.webContents.send('oura-auth-result', false, err.message)
-      })
+
+    await new Promise<void>((resolve, reject) => {
+      server.listen(LOOPBACK_PORT, 'localhost', () => resolve())
+      server.on('error', reject)
+    })
+
+    const authUrl = buildAuthUrl(clientId, LOOPBACK_REDIRECT)
+
+    // Attempt to open the browser; errors are non-fatal — the renderer
+    // receives the URL and shows a manual fallback link regardless.
+    shell.openExternal(authUrl).catch((err: Error) => {
+      console.error('shell.openExternal failed:', err.message)
+    })
 
     // Timeout after 5 minutes
     setTimeout(() => {
+      server.close()
       mainWindow?.webContents.send('oura-auth-result', false, 'Timed out waiting for authorization')
     }, 5 * 60 * 1000)
+
+    // Return the URL so the renderer can show a manual fallback link
+    return authUrl
   })
 
   ipcMain.handle('disconnect-oura', () => {

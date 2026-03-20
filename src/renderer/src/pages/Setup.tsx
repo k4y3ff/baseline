@@ -12,11 +12,13 @@ export default function Setup({ onComplete }: Props) {
   const [connecting, setConnecting] = useState(false)
   const [connected, setConnected] = useState(false)
   const [connectError, setConnectError] = useState<string | null>(null)
+  const [authUrl, setAuthUrl] = useState<string | null>(null)
 
   // Listen for OAuth result from main process
   useEffect(() => {
     const unsub = window.baseline.onOuraAuthResult((success, error) => {
       setConnecting(false)
+      setAuthUrl(null)
       if (success) {
         setConnected(true)
         setConnectError(null)
@@ -44,8 +46,14 @@ export default function Setup({ onComplete }: Props) {
     if (!id || !secret) return
     setConnecting(true)
     setConnectError(null)
-    // Opens browser — result arrives via onOuraAuthResult
-    await window.baseline.startOuraAuth(id, secret)
+    try {
+      // Opens browser — result arrives via onOuraAuthResult
+      const url = await window.baseline.startOuraAuth(id, secret)
+      setAuthUrl(url)
+    } catch (err) {
+      setConnecting(false)
+      setConnectError(err instanceof Error ? err.message : 'Failed to start authorization')
+    }
   }
 
   const finish = () => {
@@ -129,10 +137,27 @@ export default function Setup({ onComplete }: Props) {
                 className="w-full px-4 py-3 rounded-xl bg-[--color-surface-2] border border-[--color-border] text-sm outline-none focus:border-[--color-brand] transition-colors"
               />
 
-              {connecting && (
-                <p className="text-[--color-muted] text-xs text-center">
-                  Authorize in your browser, then return here…
-                </p>
+              {connecting && authUrl && (
+                <div className="flex flex-col gap-2">
+                  <p className="text-[--color-muted] text-xs text-center">
+                    If your browser didn't open,{' '}
+                    <a
+                      href={authUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-indigo-400 underline"
+                    >
+                      click here to authorize
+                    </a>
+                    .
+                  </p>
+                  <p className="text-[--color-muted] text-xs text-center break-all select-all">
+                    {authUrl}
+                  </p>
+                </div>
+              )}
+              {connecting && !authUrl && (
+                <p className="text-[--color-muted] text-xs text-center">Opening browser…</p>
               )}
               {connectError && (
                 <p className="text-red-400 text-xs text-center">{connectError}</p>

@@ -36,7 +36,7 @@ No data is transmitted to Baseline or any service operated by Baseline.
 If you choose to connect your Oura ring, Baseline will:
 
 1. Redirect you to Oura's authorization page at `cloud.ouraring.com` to complete an OAuth 2.0 login flow. This interaction is between you and Oura directly.
-2. Start a temporary local HTTP server on `127.0.0.1` to receive Oura's redirect after you approve. This server exists only for the duration of the login flow and accepts no connections from outside your machine.
+2. Start a temporary local HTTP server on `localhost:35791` to receive Oura's redirect after you approve. This server exists only for the duration of the login flow and accepts no connections from outside your machine.
 3. Receive an access token and refresh token from Oura upon your approval, and store them in `.baseline/config.json` on your device.
 3. Use those tokens to make read-only requests to the [Oura v2 API](https://cloud.ouraring.com/docs) to retrieve your daily sleep, readiness, HRV, and activity data.
 4. Write the retrieved data to `oura/oura.csv` on your device.

@@ -92,7 +92,7 @@ Baseline uses Oura's OAuth 2.0 API (v2). Personal Access Tokens were deprecated 
 ### Register an OAuth app
 
 1. Go to [cloud.ouraring.com/oauth/apps](https://cloud.ouraring.com/oauth/apps) and create a new app
-2. Set the redirect URI to: `http://127.0.0.1`
+2. Set the redirect URI to: `http://localhost:35791/callback`
 3. Copy the **Client ID** and **Client Secret**
 
 ### Connect in Baseline

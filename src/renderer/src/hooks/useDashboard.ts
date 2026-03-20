@@ -2,15 +2,24 @@ import { useState, useEffect, useCallback } from 'react'
 import type { DayData, OuraRow } from '../types'
 import { parseCheckIn } from '../lib/checkInFormat'
 
-function todayStr(): string {
-  return new Date().toISOString().split('T')[0]
+// Use local calendar date to match Oura's date keys.
+function localDateStr(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
 }
 
-function last7Days(): string[] {
+function todayStr(): string {
+  return localDateStr(new Date())
+}
+
+function last14Days(): string[] {
   const days: string[] = []
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(Date.now() - i * 86400000)
-    days.push(d.toISOString().split('T')[0])
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date()
+    d.setDate(d.getDate() - i)
+    days.push(localDateStr(d))
   }
   return days
 }
@@ -34,7 +43,7 @@ export function useDashboard() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const dates = last7Days()
+    const dates = last14Days()
     const [ouraRows, checkInDates] = await Promise.all([
       window.baseline.readOuraCsv(),
       window.baseline.listCheckIns()

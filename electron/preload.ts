@@ -31,7 +31,7 @@ const baseline = {
   writeConfig: (config: Config): Promise<void> => ipcRenderer.invoke('write-config', config),
 
   // Oura OAuth
-  startOuraAuth: (clientId: string, clientSecret: string): Promise<void> =>
+  startOuraAuth: (clientId: string, clientSecret: string): Promise<string> =>
     ipcRenderer.invoke('start-oura-auth', clientId, clientSecret),
 
   disconnectOura: (): Promise<void> => ipcRenderer.invoke('disconnect-oura'),
