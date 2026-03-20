@@ -92,7 +92,7 @@ export default function Analyze() {
         {config.chatEnabled && (
           <div className="bg-[--color-surface-2] rounded-xl border border-[--color-border] flex flex-col overflow-hidden">
             {/* Messages area */}
-            <div className="h-[280px] overflow-y-auto p-3 flex flex-col gap-2">
+            <div className="h-[186px] overflow-y-auto p-3 flex flex-col gap-2">
               {messages.length === 0 && !streamBuf && !streaming && (
                 <div className="flex-1 flex items-center justify-center">
                   <p className="text-xs text-[--color-muted] text-center leading-relaxed">
