@@ -8,8 +8,22 @@ import type { ChatMessage } from '../types'
 
 const selectCls = 'bg-[--color-surface] border border-[--color-border] rounded-lg px-2 py-1.5 text-xs outline-none focus:border-[--color-brand] transition-colors flex-1 min-w-0'
 
+const RANGES = [
+  { label: '7 days',   days: 7   },
+  { label: '1 month',  days: 30  },
+  { label: '3 months', days: 90  },
+  { label: '6 months', days: 180 },
+  { label: '1 year',   days: 365 },
+]
+
 export default function Analyze() {
-  const { days, loading } = useDashboard()
+  // Time range — persisted to localStorage
+  const [numDays, setNumDays] = useState<number>(
+    () => parseInt(localStorage.getItem('analyze-range') || '7')
+  )
+  const changeRange = (d: number) => { setNumDays(d); localStorage.setItem('analyze-range', String(d)) }
+
+  const { days, loading } = useDashboard(numDays)
   const { config } = useConfig()
   const { results: screeningResults } = useScreenings()
 
@@ -189,11 +203,12 @@ export default function Analyze() {
           </div>
         )}
 
-        {/* 7-day chart */}
+        {/* Compare chart */}
         <div className="bg-[--color-surface-2] rounded-xl border border-[--color-border] p-4">
-          <div className="flex items-center gap-2 mb-3">
+          {/* Header row: title + variable selectors */}
+          <div className="flex items-center gap-2 mb-2">
             <h2 className="text-xs font-semibold text-[--color-muted] uppercase tracking-wider shrink-0">
-              Last 7 Days
+              Compare
             </h2>
             <div className="flex items-center gap-1.5 flex-1 min-w-0">
               <select
@@ -217,12 +232,30 @@ export default function Analyze() {
               </select>
             </div>
           </div>
+
+          {/* Range pills */}
+          <div className="flex gap-1 mb-3">
+            {RANGES.map((r) => (
+              <button
+                key={r.days}
+                onClick={() => changeRange(r.days)}
+                className={`px-2 py-0.5 rounded-full text-[10px] transition-colors ${
+                  numDays === r.days
+                    ? 'bg-[--color-brand] text-white'
+                    : 'text-[--color-muted] hover:text-[--color-text]'
+                }`}
+              >
+                {r.label}
+              </button>
+            ))}
+          </div>
+
           {loading ? (
             <div className="h-[180px] flex items-center justify-center text-[--color-muted] text-sm">
               Loading…
             </div>
           ) : (
-            <WeekChart days={chartDays} varA={varA} varB={varB} />
+            <WeekChart days={chartDays} varA={varA} varB={varB} numDays={numDays} />
           )}
         </div>
       </div>

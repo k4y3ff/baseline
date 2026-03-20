@@ -41,12 +41,23 @@ interface Props {
   days: DayData[]
   varA: ChartVarKey
   varB: ChartVarKey
+  numDays?: number
 }
 
-export default function WeekChart({ days, varA, varB }: Props) {
+export default function WeekChart({ days, varA, varB, numDays = 7 }: Props) {
   const defA = CHART_VARS[varA]
   const defB = CHART_VARS[varB]
   const sameVar = varA === varB
+
+  // Thin out X-axis ticks for larger ranges so labels don't overlap
+  const tickInterval =
+    numDays <= 7   ? 0  :
+    numDays <= 30  ? 4  :
+    numDays <= 90  ? 13 :
+    numDays <= 180 ? 27 : 30
+
+  // Hide dots for dense datasets
+  const showDots = numDays <= 30
 
   const data = days.map((d) => ({
     label: d.label,
@@ -64,6 +75,7 @@ export default function WeekChart({ days, varA, varB }: Props) {
           tick={{ fill: '#888', fontSize: 11 }}
           axisLine={false}
           tickLine={false}
+          interval={tickInterval}
         />
 
         {/* Left Y-axis — variable A */}
@@ -117,7 +129,7 @@ export default function WeekChart({ days, varA, varB }: Props) {
           name={defA.label}
           stroke={defA.color}
           strokeWidth={2}
-          dot={{ fill: defA.color, r: 3, strokeWidth: 0 }}
+          dot={showDots ? { fill: defA.color, r: 3, strokeWidth: 0 } : false}
           activeDot={{ r: 5 }}
           connectNulls={false}
         />
@@ -129,7 +141,7 @@ export default function WeekChart({ days, varA, varB }: Props) {
           stroke={defB.color}
           strokeWidth={2}
           strokeDasharray={sameVar ? '4 2' : undefined}
-          dot={{ fill: defB.color, r: 3, strokeWidth: 0 }}
+          dot={showDots ? { fill: defB.color, r: 3, strokeWidth: 0 } : false}
           activeDot={{ r: 5 }}
           connectNulls={false}
         />

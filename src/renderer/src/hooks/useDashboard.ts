@@ -14,9 +14,9 @@ function todayStr(): string {
   return localDateStr(new Date())
 }
 
-function last14Days(): string[] {
+function lastNDays(n: number): string[] {
   const days: string[] = []
-  for (let i = 13; i >= 0; i--) {
+  for (let i = n - 1; i >= 0; i--) {
     const d = new Date()
     d.setDate(d.getDate() - i)
     days.push(localDateStr(d))
@@ -24,9 +24,10 @@ function last14Days(): string[] {
   return days
 }
 
-function dayLabel(dateStr: string): string {
+function dayLabel(dateStr: string, numDays: number): string {
   const d = new Date(dateStr + 'T12:00:00')
-  return d.toLocaleDateString('en-US', { weekday: 'short' })
+  if (numDays <= 7) return d.toLocaleDateString('en-US', { weekday: 'short' })
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
 function num(s: string | undefined): number | null {
@@ -35,7 +36,7 @@ function num(s: string | undefined): number | null {
   return isNaN(n) ? null : n
 }
 
-export function useDashboard() {
+export function useDashboard(numDays = 14) {
   const [days, setDays] = useState<DayData[]>([])
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
@@ -43,7 +44,7 @@ export function useDashboard() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const dates = last14Days()
+    const dates = lastNDays(numDays)
     const [ouraRows, checkInDates] = await Promise.all([
       window.baseline.readOuraCsv(),
       window.baseline.listCheckIns()
@@ -67,7 +68,7 @@ export function useDashboard() {
       const ci = checkIns[i]
       return {
         date,
-        label: dayLabel(date),
+        label: dayLabel(date, numDays),
         mood: ci?.mood ?? null,
         energy: ci?.energy ?? null,
         sleep_hours: num(oura?.sleep_hours),
@@ -83,7 +84,7 @@ export function useDashboard() {
 
     setDays(result)
     setLoading(false)
-  }, [])
+  }, [numDays])
 
   useEffect(() => {
     load()
