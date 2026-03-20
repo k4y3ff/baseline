@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import { useDashboard } from '../hooks/useDashboard'
 import { useConfig } from '../hooks/useConfig'
 import { useScreenings } from '../hooks/useScreenings'
-import WeekChart from '../components/charts/WeekChart'
 import { SCREENING_MAP, isDue } from '../lib/screenings'
 import type { ScreeningFrequency } from '../lib/screenings'
 
@@ -76,7 +75,7 @@ function MetricCard({ label, value, unit }: { label: string; value: string | num
 
 export default function Dashboard() {
   const navigate = useNavigate()
-  const { days, today, hasCheckInToday, loading, syncing, triggerSync, reload } = useDashboard()
+  const { today, hasCheckInToday, syncing, triggerSync } = useDashboard()
   const { config } = useConfig()
   const { results: screeningResults } = useScreenings()
   const [summary, setSummary] = useState<SummaryState>({ status: 'idle' })
@@ -192,20 +191,6 @@ export default function Dashboard() {
             model={config.ollamaModel || 'llama3.2'}
           />
         )}
-
-        {/* 7-day chart */}
-        <div className="bg-[--color-surface-2] rounded-xl border border-[--color-border] p-4">
-          <h2 className="text-xs font-semibold text-[--color-muted] uppercase tracking-wider mb-3">
-            Last 7 days
-          </h2>
-          {loading ? (
-            <div className="h-[180px] flex items-center justify-center text-[--color-muted] text-sm">
-              Loading…
-            </div>
-          ) : (
-            <WeekChart days={days} />
-          )}
-        </div>
 
       </div>
     </div>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import Setup from './pages/Setup'
 import Dashboard from './pages/Dashboard'
+import Analyze from './pages/Analyze'
 import CheckIn from './pages/CheckIn'
 import History from './pages/History'
 import Screening from './pages/Screening'
@@ -40,6 +41,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/analyze" element={<Analyze />} />
             <Route path="/check-in" element={<CheckIn />} />
             <Route path="/check-in/:date" element={<CheckIn />} />
             <Route path="/history" element={<History />} />
