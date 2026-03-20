@@ -36,8 +36,15 @@ interface Config {
   summaryText?: string        // cached summary text
   ollamaSummariesEnabled?: boolean
   ollamaModel?: string        // defaults to 'llama3.2'
+  chatEnabled?: boolean
+  chatHistory?: 'session' | 'daily' | 'persistent'
   screeningsEnabled?: string[]
   screeningFrequency?: 'weekly' | 'biweekly' | 'monthly' | 'quarterly'
+}
+
+interface ChatMessage {
+  role: 'user' | 'assistant' | 'system'
+  content: string
 }
 
 function getConfigPath(vaultPath: string): string {
@@ -518,7 +525,8 @@ function registerIpcHandlers(): void {
     'read-oura-csv', 'sync-oura',
     'read-check-in', 'write-check-in', 'list-check-ins',
     'check-ollama', 'generate-summary',
-    'list-screenings', 'save-screening'
+    'list-screenings', 'save-screening',
+    'start-chat', 'read-chat-history', 'write-chat-history'
   ]
   for (const ch of channels) ipcMain.removeHandler(ch)
 
@@ -688,6 +696,93 @@ function registerIpcHandlers(): void {
     if (!vaultPath) throw new Error('No vault path set')
     saveScreeningResult(vaultPath, result)
   })
+
+  // ── Chat ──────────────────────────────────────────────────────────────────
+  ipcMain.handle('start-chat', async (_e, messages: ChatMessage[]) => {
+    const vaultPath = getVaultPath()
+    if (!vaultPath) throw new Error('No vault path set')
+
+    // Cancel any active stream
+    if (activeChatController) {
+      activeChatController.abort()
+      activeChatController = null
+    }
+
+    try {
+      await ensureOllama()
+    } catch (err) {
+      mainWindow?.webContents.send('chat-error', err instanceof Error ? err.message : 'Could not start Ollama')
+      return
+    }
+
+    const config = readConfig(vaultPath)
+    const model = config.ollamaModel?.trim() || OLLAMA_MODEL
+    const context = buildChatContext(vaultPath)
+    const systemMsg: ChatMessage = {
+      role: 'system',
+      content: `You are a personal wellness assistant with access to the user's health data. Answer questions helpfully and concisely based on the data below. Do not make medical diagnoses. Today is ${localDateStr(new Date())}.\n\n${context}`
+    }
+
+    activeChatController = new AbortController()
+    const controller = activeChatController
+
+    ;(async () => {
+      try {
+        const res = await fetch(`${OLLAMA_BASE}/api/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model, messages: [systemMsg, ...messages], stream: true }),
+          signal: controller.signal
+        })
+        if (!res.ok) throw new Error(`Ollama error ${res.status}`)
+
+        const reader = res.body!.getReader()
+        const decoder = new TextDecoder()
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          const text = decoder.decode(value, { stream: true })
+          for (const line of text.split('\n')) {
+            if (!line.trim()) continue
+            try {
+              const chunk = JSON.parse(line) as { message?: { content: string }; done: boolean }
+              if (chunk.message?.content) {
+                mainWindow?.webContents.send('chat-token', chunk.message.content)
+              }
+              if (chunk.done) {
+                mainWindow?.webContents.send('chat-done')
+                activeChatController = null
+              }
+            } catch { /* skip malformed NDJSON */ }
+          }
+        }
+      } catch (err) {
+        if ((err as { name?: string }).name === 'AbortError') return
+        mainWindow?.webContents.send('chat-error', err instanceof Error ? err.message : 'Streaming error')
+        activeChatController = null
+      }
+    })()
+  })
+
+  ipcMain.handle('read-chat-history', () => {
+    const vaultPath = getVaultPath()
+    if (!vaultPath) return []
+    const config = readConfig(vaultPath)
+    if (!config.chatHistory || config.chatHistory === 'session') return []
+    const p = getChatHistoryPath(vaultPath, config.chatHistory)
+    if (!existsSync(p)) return []
+    try { return JSON.parse(readFileSync(p, 'utf-8')) as ChatMessage[] } catch { return [] }
+  })
+
+  ipcMain.handle('write-chat-history', (_e, messages: ChatMessage[]) => {
+    const vaultPath = getVaultPath()
+    if (!vaultPath) return
+    const config = readConfig(vaultPath)
+    if (!config.chatHistory || config.chatHistory === 'session') return
+    const dir = join(vaultPath, '.baseline')
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(getChatHistoryPath(vaultPath, config.chatHistory), JSON.stringify(messages, null, 2), 'utf-8')
+  })
 }
 
 // ─── Screenings ───────────────────────────────────────────────────────────────
@@ -731,6 +826,65 @@ function saveScreeningResult(vaultPath: string, result: ScreeningResult): void {
     writeConfig(vaultPath, { ...config, summaryDate: undefined, summaryText: undefined })
   }
 }
+
+// ─── Chat ─────────────────────────────────────────────────────────────────────
+
+function buildChatContext(vaultPath: string): string {
+  const sections: string[] = [`Today is ${localDateStr(new Date())}.`]
+
+  const rows = readOuraCsv(vaultPath)
+  if (rows.length > 0) {
+    const lines = rows.map((r) => {
+      const parts: string[] = [r.date]
+      if (r.sleep_hours)     parts.push(`sleep ${r.sleep_hours}h`)
+      if (r.sleep_score)     parts.push(`sleep_score ${r.sleep_score}`)
+      if (r.hrv_avg)         parts.push(`hrv ${r.hrv_avg}`)
+      if (r.readiness_score) parts.push(`readiness ${r.readiness_score}`)
+      if (r.activity_score)  parts.push(`activity ${r.activity_score}`)
+      if (r.steps)           parts.push(`steps ${r.steps}`)
+      return parts.join(', ')
+    })
+    sections.push(`=== OURA DATA ===\n${lines.join('\n')}`)
+  }
+
+  const checkInDir = join(vaultPath, 'check-ins')
+  if (existsSync(checkInDir)) {
+    const files = readdirSync(checkInDir).filter((f) => f.endsWith('.md')).sort()
+    if (files.length > 0) {
+      const lines = files.map((file) => {
+        const date = file.replace('.md', '')
+        const content = readFileSync(join(checkInDir, file), 'utf-8')
+        const moodMatch    = content.match(/mood:\s*(\d)/i)
+        const energyMatch  = content.match(/energy:\s*(\d)/i)
+        const notesMatch   = content.match(/##\s*Notes\s*\n+([\s\S]*?)(?:\n##|$)/i)
+        const parts: string[] = [date]
+        if (moodMatch)  parts.push(`mood ${moodMatch[1]}/5`)
+        if (energyMatch) parts.push(`energy ${energyMatch[1]}/5`)
+        const notes = notesMatch?.[1]?.trim()
+        if (notes) parts.push(`notes: "${notes.substring(0, 200)}"`)
+        return parts.join(', ')
+      })
+      sections.push(`=== CHECK-INS ===\n${lines.join('\n')}`)
+    }
+  }
+
+  const screenings = listScreeningResults(vaultPath)
+  if (screenings.length > 0) {
+    const lines = screenings.map((s) => `${s.date}: ${s.type} score ${s.score} (${s.severity})`)
+    sections.push(`=== SCREENINGS ===\n${lines.join('\n')}`)
+  }
+
+  return sections.join('\n\n')
+}
+
+function getChatHistoryPath(vaultPath: string, mode: 'daily' | 'persistent'): string {
+  const dir = join(vaultPath, '.baseline')
+  return mode === 'daily'
+    ? join(dir, `chat-${localDateStr(new Date())}.json`)
+    : join(dir, 'chat.json')
+}
+
+let activeChatController: AbortController | null = null
 
 // ─── Window ───────────────────────────────────────────────────────────────────
 function createWindow(): void {

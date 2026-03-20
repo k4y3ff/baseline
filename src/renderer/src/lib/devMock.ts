@@ -3,7 +3,7 @@
  * Provides realistic stub data so the UI can be previewed without Electron.
  */
 
-import type { OuraRow, Config, ScreeningResult } from '../types'
+import type { OuraRow, Config, ScreeningResult, ChatMessage } from '../types'
 
 const today = new Date().toISOString().split('T')[0]
 
@@ -39,6 +39,10 @@ const mockScreenings: ScreeningResult[] = [
 ]
 
 const mockAuthCallbacks: Array<(success: boolean, error?: string) => void> = []
+const chatTokenCbs: Array<(token: string) => void> = []
+const chatDoneCbs: Array<() => void> = []
+const chatErrorCbs: Array<(err: string) => void> = []
+let mockChatHistory: ChatMessage[] = []
 
 export function installDevMock(): void {
   if (typeof window === 'undefined') return
@@ -121,6 +125,37 @@ export function installDevMock(): void {
     generateSummary: async () => {
       await new Promise((r) => setTimeout(r, 1800))
       return "Yesterday's solid 8.1h of sleep and high HRV of 58 have set you up well — your readiness is strong today. Your energy and mood were both at their peak yesterday, which is a great sign heading into today. Focus on keeping your activity level up and you should feel great."
-    }
+    },
+
+    // Chat
+    startChat: async (messages: ChatMessage[]) => {
+      const last = messages[messages.length - 1]?.content ?? ''
+      const reply = `(Preview) You asked: "${last}". In the real app, your Oura data, check-ins, and screenings are sent to your local Ollama model for analysis.`
+      let i = 0
+      const tick = () => {
+        if (i < reply.length) {
+          chatTokenCbs.forEach((cb) => cb(reply[i]))
+          i++
+          setTimeout(tick, 18)
+        } else {
+          chatDoneCbs.forEach((cb) => cb())
+        }
+      }
+      setTimeout(tick, 300)
+    },
+    onChatToken: (cb: (token: string) => void) => {
+      chatTokenCbs.push(cb)
+      return () => { const idx = chatTokenCbs.indexOf(cb); if (idx !== -1) chatTokenCbs.splice(idx, 1) }
+    },
+    onChatDone: (cb: () => void) => {
+      chatDoneCbs.push(cb)
+      return () => { const idx = chatDoneCbs.indexOf(cb); if (idx !== -1) chatDoneCbs.splice(idx, 1) }
+    },
+    onChatError: (cb: (err: string) => void) => {
+      chatErrorCbs.push(cb)
+      return () => { const idx = chatErrorCbs.indexOf(cb); if (idx !== -1) chatErrorCbs.splice(idx, 1) }
+    },
+    readChatHistory: async () => [...mockChatHistory],
+    writeChatHistory: async (messages: ChatMessage[]) => { mockChatHistory = [...messages] },
   }
 }

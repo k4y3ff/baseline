@@ -8,8 +8,15 @@ export interface Config {
   summaryText?: string        // cached summary text
   ollamaSummariesEnabled?: boolean
   ollamaModel?: string        // defaults to 'llama3.2'
+  chatEnabled?: boolean
+  chatHistory?: 'session' | 'daily' | 'persistent'
   screeningsEnabled?: string[]
   screeningFrequency?: 'weekly' | 'biweekly' | 'monthly' | 'quarterly'
+}
+
+export interface ChatMessage {
+  role: 'user' | 'assistant'
+  content: string
 }
 
 export interface ScreeningResult {

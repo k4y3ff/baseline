@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useConfig } from '../hooks/useConfig'
 import { ALL_SCREENINGS, FREQUENCY_LABELS } from '../lib/screenings'
 import type { ScreeningFrequency } from '../lib/screenings'
+import type { Config } from '../types'
 
 export default function Settings() {
   const { config, loading, save, reload } = useConfig()
@@ -20,6 +21,10 @@ export default function Settings() {
   const [ollamaAvailable, setOllamaAvailable] = useState<boolean | null>(null)
   const [ollamaCheckError, setOllamaCheckError] = useState<string | null>(null)
   const [ollamaModel, setOllamaModel] = useState(config.ollamaModel ?? 'llama3.2')
+
+  // Ollama is considered verified if the user clicked "Check for Ollama" this session,
+  // OR if any AI feature is already enabled (meaning it was verified in a prior session).
+  const ollamaVerified = ollamaAvailable === true || config.ollamaSummariesEnabled === true || config.chatEnabled === true
 
   // Sync model field when config loads
   useEffect(() => {
@@ -222,29 +227,26 @@ export default function Settings() {
           )}
         </section>
 
-        {/* Ollama summaries */}
+        {/* AI section */}
         <section className="flex flex-col gap-3">
           <h2 className="text-xs font-semibold text-[--color-muted] uppercase tracking-wider">
-            AI Summaries
+            AI
           </h2>
           <div className="bg-[--color-surface-2] rounded-xl border border-[--color-border] p-4 flex flex-col gap-4">
-            {/* Toggle row */}
+
+            {/* Daily readiness summary toggle */}
             <div className="flex items-center justify-between gap-4">
               <div>
                 <p className="text-sm font-medium">Daily readiness summary</p>
-                <p className="text-xs text-[--color-muted] mt-0.5">
-                  Generated locally via Ollama
-                </p>
+                <p className="text-xs text-[--color-muted] mt-0.5">Shown on the Today tab</p>
               </div>
               <button
                 role="switch"
                 aria-checked={config.ollamaSummariesEnabled ?? false}
-                disabled={!config.ollamaSummariesEnabled && ollamaAvailable !== true}
+                disabled={!config.ollamaSummariesEnabled && !ollamaVerified}
                 onClick={() => toggleSummaries(!config.ollamaSummariesEnabled)}
                 className={`relative shrink-0 w-11 h-6 rounded-full transition-colors ${
-                  config.ollamaSummariesEnabled
-                    ? 'bg-[--color-brand]'
-                    : 'bg-[--color-border]'
+                  config.ollamaSummariesEnabled ? 'bg-[--color-brand]' : 'bg-[--color-border]'
                 } disabled:opacity-40`}
               >
                 <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
@@ -253,27 +255,59 @@ export default function Settings() {
               </button>
             </div>
 
-            {/* Not yet detected */}
-            {!config.ollamaSummariesEnabled && (
-              <div className="flex flex-col gap-2">
+            {/* Chat toggle */}
+            <div className="flex flex-col gap-3 pt-1 border-t border-[--color-border]">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium">Data chat</p>
+                  <p className="text-xs text-[--color-muted] mt-0.5">Ask questions on the Analyze tab</p>
+                </div>
+                <button
+                  role="switch"
+                  aria-checked={config.chatEnabled ?? false}
+                  disabled={!config.chatEnabled && !ollamaVerified}
+                  onClick={() => save({ chatEnabled: !config.chatEnabled })}
+                  className={`relative shrink-0 w-11 h-6 rounded-full transition-colors ${
+                    config.chatEnabled ? 'bg-[--color-brand]' : 'bg-[--color-border]'
+                  } disabled:opacity-40`}
+                >
+                  <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
+                    config.chatEnabled ? 'translate-x-5' : 'translate-x-0'
+                  }`} />
+                </button>
+              </div>
+
+              {/* Chat history setting */}
+              {config.chatEnabled && (
+                <div className="flex items-center justify-between gap-4">
+                  <label className="text-sm text-[--color-muted]">Chat history</label>
+                  <select
+                    value={config.chatHistory ?? 'session'}
+                    onChange={(e) => save({ chatHistory: e.target.value as Config['chatHistory'] })}
+                    className="bg-[--color-surface] border border-[--color-border] rounded-lg px-3 py-1.5 text-sm outline-none focus:border-[--color-brand] transition-colors"
+                  >
+                    <option value="session">Session only</option>
+                    <option value="daily">Per day</option>
+                    <option value="persistent">Persistent</option>
+                  </select>
+                </div>
+              )}
+            </div>
+
+            {/* Ollama detection — shown when Ollama hasn't been verified yet */}
+            {!ollamaVerified && (
+              <div className="flex flex-col gap-2 pt-1 border-t border-[--color-border]">
                 {ollamaAvailable === false && (
                   <p className="text-xs text-[--color-muted] leading-relaxed">
                     Ollama was not found.{' '}
-                    <a
-                      href="https://ollama.com"
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-indigo-400 underline"
-                    >
+                    <a href="https://ollama.com" target="_blank" rel="noreferrer" className="text-indigo-400 underline">
                       Install it from ollama.com
                     </a>
                     , then check again.
                   </p>
                 )}
                 {ollamaAvailable === null && !ollamaCheckError && (
-                  <p className="text-xs text-[--color-muted]">
-                    Ollama is required to generate summaries.
-                  </p>
+                  <p className="text-xs text-[--color-muted]">Ollama is required for AI features.</p>
                 )}
                 {ollamaCheckError && (
                   <p className="text-xs text-red-400 leading-relaxed">{ollamaCheckError}</p>
@@ -288,20 +322,18 @@ export default function Settings() {
               </div>
             )}
 
-            {/* Model picker — shown when enabled */}
-            {config.ollamaSummariesEnabled && (
-              <div className="flex flex-col gap-2">
+            {/* Model picker — shown when any AI feature is enabled */}
+            {(config.ollamaSummariesEnabled || config.chatEnabled) && (
+              <div className="flex flex-col gap-2 pt-1 border-t border-[--color-border]">
                 <label className="text-xs text-[--color-muted]">Model</label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={ollamaModel}
-                    onChange={(e) => setOllamaModel(e.target.value)}
-                    onBlur={saveModel}
-                    placeholder="llama3.2"
-                    className="flex-1 px-3 py-2 rounded-lg bg-[#111] border border-[--color-border] text-sm outline-none focus:border-[--color-brand] transition-colors"
-                  />
-                </div>
+                <input
+                  type="text"
+                  value={ollamaModel}
+                  onChange={(e) => setOllamaModel(e.target.value)}
+                  onBlur={saveModel}
+                  placeholder="llama3.2"
+                  className="flex-1 px-3 py-2 rounded-lg bg-[#111] border border-[--color-border] text-sm outline-none focus:border-[--color-brand] transition-colors"
+                />
                 <p className="text-[10px] text-[--color-muted]">
                   Must be pulled via <span className="font-mono">ollama pull {ollamaModel || 'llama3.2'}</span>
                 </p>

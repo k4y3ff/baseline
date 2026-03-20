@@ -28,6 +28,11 @@ export interface ScreeningResult {
   severity: string
 }
 
+export interface ChatMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
+
 const baseline = {
   // Vault setup
   getVaultPath: (): Promise<string | null> => ipcRenderer.invoke('get-vault-path'),
@@ -69,7 +74,29 @@ const baseline = {
   // Screenings
   listScreenings: (): Promise<ScreeningResult[]> => ipcRenderer.invoke('list-screenings'),
   saveScreening: (result: ScreeningResult): Promise<void> =>
-    ipcRenderer.invoke('save-screening', result)
+    ipcRenderer.invoke('save-screening', result),
+
+  // Chat
+  startChat: (messages: ChatMessage[]): Promise<void> =>
+    ipcRenderer.invoke('start-chat', messages),
+  onChatToken: (cb: (token: string) => void): (() => void) => {
+    const h = (_: Electron.IpcRendererEvent, token: string) => cb(token)
+    ipcRenderer.on('chat-token', h)
+    return () => ipcRenderer.removeListener('chat-token', h)
+  },
+  onChatDone: (cb: () => void): (() => void) => {
+    const h = () => cb()
+    ipcRenderer.on('chat-done', h)
+    return () => ipcRenderer.removeListener('chat-done', h)
+  },
+  onChatError: (cb: (err: string) => void): (() => void) => {
+    const h = (_: Electron.IpcRendererEvent, err: string) => cb(err)
+    ipcRenderer.on('chat-error', h)
+    return () => ipcRenderer.removeListener('chat-error', h)
+  },
+  readChatHistory: (): Promise<ChatMessage[]> => ipcRenderer.invoke('read-chat-history'),
+  writeChatHistory: (messages: ChatMessage[]): Promise<void> =>
+    ipcRenderer.invoke('write-chat-history', messages)
 }
 
 if (process.contextIsolated) {

@@ -1,4 +1,4 @@
-import type { Config, OuraRow, ScreeningResult } from './index'
+import type { Config, OuraRow, ScreeningResult, ChatMessage } from './index'
 
 declare global {
   interface Window {
@@ -20,6 +20,12 @@ declare global {
       generateSummary(force?: boolean): Promise<string>
       listScreenings(): Promise<ScreeningResult[]>
       saveScreening(result: ScreeningResult): Promise<void>
+      startChat(messages: ChatMessage[]): Promise<void>
+      onChatToken(cb: (token: string) => void): () => void
+      onChatDone(cb: () => void): () => void
+      onChatError(cb: (err: string) => void): () => void
+      readChatHistory(): Promise<ChatMessage[]>
+      writeChatHistory(messages: ChatMessage[]): Promise<void>
     }
   }
 }
