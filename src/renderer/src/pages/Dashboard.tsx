@@ -94,10 +94,10 @@ export default function Dashboard() {
     }
   }, [config.ouraAccessToken]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const generateSummary = async () => {
+  const generateSummary = async (force = false) => {
     setSummary({ status: 'loading' })
     try {
-      const text = await window.baseline.generateSummary()
+      const text = await window.baseline.generateSummary(force)
       setSummary({ status: 'done', text })
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Could not generate summary.'
@@ -108,7 +108,7 @@ export default function Dashboard() {
   // Generate once on mount when summaries are enabled (cache handled in main process)
   useEffect(() => {
     if (config.ollamaSummariesEnabled) {
-      generateSummary()
+      generateSummary(false)
     }
   }, [config.ollamaSummariesEnabled]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -188,7 +188,7 @@ export default function Dashboard() {
         {config.ollamaSummariesEnabled && summary.status !== 'idle' && (
           <SummaryCard
             state={summary}
-            onRetry={generateSummary}
+            onRetry={() => generateSummary(true)}
             model={config.ollamaModel || 'llama3.2'}
           />
         )}

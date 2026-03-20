@@ -64,7 +64,7 @@ const baseline = {
 
   // Ollama
   checkOllama: (): Promise<{ available: boolean }> => ipcRenderer.invoke('check-ollama'),
-  generateSummary: (): Promise<string> => ipcRenderer.invoke('generate-summary'),
+  generateSummary: (force?: boolean): Promise<string> => ipcRenderer.invoke('generate-summary', force ?? false),
 
   // Screenings
   listScreenings: (): Promise<ScreeningResult[]> => ipcRenderer.invoke('list-screenings'),

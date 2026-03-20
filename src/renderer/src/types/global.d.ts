@@ -17,7 +17,7 @@ declare global {
       writeCheckIn(date: string, content: string): Promise<void>
       listCheckIns(): Promise<string[]>
       checkOllama(): Promise<{ available: boolean }>
-      generateSummary(): Promise<string>
+      generateSummary(force?: boolean): Promise<string>
       listScreenings(): Promise<ScreeningResult[]>
       saveScreening(result: ScreeningResult): Promise<void>
     }

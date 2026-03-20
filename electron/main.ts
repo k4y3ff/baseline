@@ -344,7 +344,7 @@ function localDateStr(d: Date): string {
   return `${y}-${m}-${day}`
 }
 
-async function generateDailySummary(vaultPath: string): Promise<string> {
+async function generateDailySummary(vaultPath: string, force = false): Promise<string> {
   const config = readConfig(vaultPath)
   const model = config.ollamaModel?.trim() || OLLAMA_MODEL
 
@@ -353,8 +353,8 @@ async function generateDailySummary(vaultPath: string): Promise<string> {
   yesterdayDate.setDate(yesterdayDate.getDate() - 1)
   const yesterday = localDateStr(yesterdayDate)
 
-  // Check cache first (config already read above)
-  if (config.summaryDate === today && config.summaryText) {
+  // Check cache first unless the caller explicitly wants a fresh generation
+  if (!force && config.summaryDate === today && config.summaryText) {
     return config.summaryText
   }
 
@@ -379,6 +379,11 @@ async function generateDailySummary(vaultPath: string): Promise<string> {
   const ciMood = moodMatch ? moodMatch[1] : null
   const ciEnergy = energyMatch ? energyMatch[1] : null
   const ciNotes = notesMatch ? notesMatch[1].trim() : null
+
+  // Gather any screenings completed today or yesterday
+  const recentScreenings = listScreeningResults(vaultPath).filter(
+    (r) => r.date === today || r.date === yesterday
+  )
 
   // Build prompt
   const lines: string[] = [
@@ -405,6 +410,14 @@ async function generateDailySummary(vaultPath: string): Promise<string> {
     if (td.sleep_hours)     lines.push(`- Sleep: ${td.sleep_hours}h`)
   } else {
     lines.push("- Today's data not yet synced.")
+  }
+
+  // Include any recent screening results
+  if (recentScreenings.length > 0) {
+    lines.push('', 'Recent screenings:')
+    for (const s of recentScreenings) {
+      lines.push(`- ${s.type} (${s.date}): score ${s.score} — ${s.severity}`)
+    }
   }
 
   lines.push('', 'Summary:')
@@ -657,10 +670,10 @@ function registerIpcHandlers(): void {
   })
 
   // LLM summary
-  ipcMain.handle('generate-summary', async () => {
+  ipcMain.handle('generate-summary', async (_e, force: boolean = false) => {
     const vaultPath = getVaultPath()
     if (!vaultPath) throw new Error('No vault path set')
-    return generateDailySummary(vaultPath)
+    return generateDailySummary(vaultPath, force)
   })
 
   // Screenings
@@ -712,6 +725,11 @@ function saveScreeningResult(vaultPath: string, result: ScreeningResult): void {
   const dir = getScreeningDir(vaultPath, result.type)
   mkdirSync(dir, { recursive: true })
   writeFileSync(join(dir, `${result.date}.json`), JSON.stringify(result, null, 2), 'utf-8')
+  // Invalidate the cached summary so the next load regenerates with this screening included
+  const config = readConfig(vaultPath)
+  if (config.summaryDate) {
+    writeConfig(vaultPath, { ...config, summaryDate: undefined, summaryText: undefined })
+  }
 }
 
 // ─── Window ───────────────────────────────────────────────────────────────────
