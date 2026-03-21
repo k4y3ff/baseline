@@ -3,7 +3,7 @@
  * Provides realistic stub data so the UI can be previewed without Electron.
  */
 
-import type { OuraRow, Config, ScreeningResult, ChatMessage, YnabBudget, SpendingRow } from '../types'
+import type { OuraRow, Config, ScreeningResult, ChatMessage, YnabBudget, SpendingRow, ClinicianSnippet } from '../types'
 
 const today = new Date().toISOString().split('T')[0]
 
@@ -43,6 +43,7 @@ const chatTokenCbs: Array<(token: string) => void> = []
 const chatDoneCbs: Array<() => void> = []
 const chatErrorCbs: Array<(err: string) => void> = []
 let mockChatHistory: ChatMessage[] = []
+let mockClinicianNotes: ClinicianSnippet[] = []
 
 const mockYnabBudgets: YnabBudget[] = [
   { id: 'budget-1', name: 'My Budget' }
@@ -196,5 +197,9 @@ export function installDevMock(): void {
       void ynabPat; void ynabBudgetId; void ynabBudgetName; void ynabEnabled
       mockConfig = rest
     },
+
+    // Clinician notes
+    readClinicianNotes: async () => [...mockClinicianNotes],
+    writeClinicianNotes: async (notes: ClinicianSnippet[]) => { mockClinicianNotes = [...notes] },
   }
 }

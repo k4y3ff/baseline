@@ -8,6 +8,7 @@ import {
   Legend,
   ResponsiveContainer
 } from 'recharts'
+import type { MouseEvent } from 'react'
 import type { DayData } from '../../types'
 
 // ── Variable catalogue ────────────────────────────────────────────────────────
@@ -47,9 +48,10 @@ interface Props {
   varA: ChartVarKey
   varB: ChartVarKey
   numDays?: number
+  onContextMenu?: (e: MouseEvent) => void
 }
 
-export default function WeekChart({ days, varA, varB, numDays = 7 }: Props) {
+export default function WeekChart({ days, varA, varB, numDays = 7, onContextMenu }: Props) {
   const defA = CHART_VARS[varA]
   const defB = CHART_VARS[varB]
   const sameVar = varA === varB
@@ -72,7 +74,7 @@ export default function WeekChart({ days, varA, varB, numDays = 7 }: Props) {
   }))
 
   return (
-    <div style={{ width: '100%', height: 180, minWidth: 0 }}>
+    <div style={{ width: '100%', height: 180, minWidth: 0 }} onContextMenu={onContextMenu}>
     <ResponsiveContainer width="100%" height="100%">
       <ComposedChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: -16 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#2e2e2e" />

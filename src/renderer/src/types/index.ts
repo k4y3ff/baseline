@@ -82,6 +82,15 @@ export interface CheckIn {
   }
 }
 
+export interface ClinicianSnippet {
+  id: string
+  savedAt: string      // ISO timestamp
+  capturedDate: string // YYYY-MM-DD — date the data refers to
+  source: 'check-in' | 'analyze'
+  label: string
+  text: string
+}
+
 export interface DayData {
   date: string
   label: string // "Mon", "Tue" etc.

@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { formatCheckIn, parseCheckIn } from '../lib/checkInFormat'
 import { useConfig } from '../hooks/useConfig'
+import { useClinicianNotes } from '../hooks/useClinicianNotes'
+import ContextMenu from '../components/ui/ContextMenu'
 import type { OuraRow } from '../types'
 
 const MOOD_LABELS: string[] = ['', '😞', '😕', '😐', '🙂', '😄']
@@ -41,6 +43,16 @@ export default function CheckIn() {
 
   // Menstrual flow state (only used when menstrualEnabled)
   const [menstrualFlow, setMenstrualFlow] = useState<'none' | 'light' | 'medium' | 'heavy'>('none')
+
+  // Clinician notes
+  const { addSnippet } = useClinicianNotes()
+  const [menu, setMenu] = useState<{ x: number; y: number; text: string; label: string } | null>(null)
+
+  const showMenu = (e: React.MouseEvent, text: string, label: string) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setMenu({ x: e.clientX, y: e.clientY, text, label })
+  }
 
   // Load today's oura data and any existing check-in
   useEffect(() => {
@@ -104,6 +116,15 @@ export default function CheckIn() {
 
   return (
     <div className="flex flex-col h-full">
+      {menu && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          onSave={() => addSnippet({ capturedDate: date, source: 'check-in', label: menu.label, text: menu.text })}
+          onClose={() => setMenu(null)}
+        />
+      )}
+
       {/* Header */}
       <div className="drag-region px-5 pt-10 pb-4">
         <div className="no-drag">
@@ -120,9 +141,26 @@ export default function CheckIn() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-5 flex flex-col gap-6 pb-6">
+      <div
+        className="flex-1 overflow-y-auto px-5 flex flex-col gap-6 pb-6"
+        onContextMenu={(e) => {
+          const text = formatCheckIn({
+            date, mood, energy, notes,
+            nutrition: config.nutritionEnabled ? {
+              calories: calories !== '' ? parseInt(calories) : undefined,
+              protein: protein !== '' ? parseFloat(protein) : undefined,
+              carbs: carbs !== '' ? parseFloat(carbs) : undefined,
+              fat: fat !== '' ? parseFloat(fat) : undefined,
+            } : undefined,
+            weight: config.weightEnabled && weight !== '' ? parseFloat(weight) : undefined,
+            medication: config.medicationEnabled ? medication : undefined,
+            menstrualFlow: config.menstrualEnabled ? menstrualFlow : undefined,
+          })
+          showMenu(e, text, 'Full check-in')
+        }}
+      >
         {/* Mood */}
-        <div>
+        <div onContextMenu={(e) => showMenu(e, `Mood: ${mood}/5`, 'Mood')}>
           <label className="text-sm font-medium text-[--color-muted] block mb-3">Mood</label>
           <div className="flex gap-2">
             {[1, 2, 3, 4, 5].map((v) => (
@@ -143,7 +181,7 @@ export default function CheckIn() {
         </div>
 
         {/* Energy */}
-        <div>
+        <div onContextMenu={(e) => showMenu(e, `Energy: ${energy}/5`, 'Energy')}>
           <label className="text-sm font-medium text-[--color-muted] block mb-3">Energy</label>
           <div className="flex gap-2">
             {[1, 2, 3, 4, 5].map((v) => (
@@ -164,7 +202,7 @@ export default function CheckIn() {
         </div>
 
         {/* Notes */}
-        <div>
+        <div onContextMenu={(e) => notes.trim() ? showMenu(e, `Notes: ${notes}`, 'Notes') : e.preventDefault()}>
           <label className="text-sm font-medium text-[--color-muted] block mb-2">
             Notes <span className="font-normal">(optional)</span>
           </label>
@@ -179,7 +217,7 @@ export default function CheckIn() {
 
         {/* Weight — only when enabled in Settings */}
         {config.weightEnabled && (
-          <div>
+          <div onContextMenu={(e) => weight !== '' ? showMenu(e, `Weight: ${weight} lbs`, 'Weight') : e.preventDefault()}>
             <label className="text-sm font-medium text-[--color-muted] block mb-2">
               Weight <span className="font-normal">(optional)</span>
             </label>
@@ -202,7 +240,10 @@ export default function CheckIn() {
 
         {/* Medication — only when enabled in Settings */}
         {config.medicationEnabled && (
-          <label className="flex items-center gap-3 cursor-pointer">
+          <label
+            className="flex items-center gap-3 cursor-pointer"
+            onContextMenu={(e) => showMenu(e, `Medication: ${medication ? 'Yes' : 'No'}`, 'Medication')}
+          >
             <div className="relative">
               <input
                 type="checkbox"
@@ -231,7 +272,7 @@ export default function CheckIn() {
 
         {/* Menstrual flow — only when enabled in Settings */}
         {config.menstrualEnabled && (
-          <div>
+          <div onContextMenu={(e) => showMenu(e, `Flow: ${menstrualFlow}`, 'Menstrual Flow')}>
             <label className="text-sm font-medium text-[--color-muted] block mb-3">Flow</label>
             <div className="flex gap-2">
               {(['none', 'light', 'medium', 'heavy'] as const).map((level) => (
@@ -253,7 +294,16 @@ export default function CheckIn() {
 
         {/* Nutrition — only when enabled in Settings */}
         {config.nutritionEnabled && (
-          <div>
+          <div onContextMenu={(e) => showMenu(
+            e,
+            [
+              calories !== '' ? `Calories: ${calories} kcal` : null,
+              protein  !== '' ? `Protein: ${protein}g`       : null,
+              carbs    !== '' ? `Carbs: ${carbs}g`           : null,
+              fat      !== '' ? `Fat: ${fat}g`               : null,
+            ].filter(Boolean).join(', ') || 'Nutrition: (not logged)',
+            'Nutrition'
+          )}>
             <label className="text-sm font-medium text-[--color-muted] block mb-3">
               Nutrition <span className="font-normal">(optional)</span>
             </label>

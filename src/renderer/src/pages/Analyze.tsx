@@ -2,9 +2,11 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useDashboard } from '../hooks/useDashboard'
 import { useConfig } from '../hooks/useConfig'
 import { useScreenings } from '../hooks/useScreenings'
+import { useClinicianNotes } from '../hooks/useClinicianNotes'
 import WeekChart, { CHART_VARS, CHART_VAR_KEYS } from '../components/charts/WeekChart'
 import type { ChartVarKey } from '../components/charts/WeekChart'
-import type { Config } from '../types'
+import ContextMenu from '../components/ui/ContextMenu'
+import type { Config, DayData } from '../types'
 
 function enabledVarKeysFor(config: Config): ChartVarKey[] {
   const oura = Boolean(config.ouraAccessToken)
@@ -77,6 +79,32 @@ export default function Analyze() {
     )
     return days.map((d) => ({ ...d, phq9_score: phq9ByDate.get(d.date) ?? null }))
   }, [days, screeningResults])
+
+  // ── Clinician notes ─────────────────────────────────────────────────────────
+  const { addSnippet } = useClinicianNotes()
+  const [chartMenu, setChartMenu] = useState<{ x: number; y: number } | null>(null)
+  const today = new Date().toISOString().split('T')[0]
+
+  function buildChartTable(days: DayData[], varA: ChartVarKey, varB: ChartVarKey, numDays: number): string {
+    const labelA = CHART_VARS[varA].label
+    const labelB = CHART_VARS[varB].label
+    const range = numDays === 1 ? '1 day' : numDays <= 30 ? `${numDays} days` : numDays === 365 ? '1 year' : `${numDays} days`
+    const header = `${labelA} vs ${labelB} (${range})\n`
+    const col1 = 'Date'
+    const col2Width = Math.max(labelA.length, 10)
+    const col3Width = Math.max(labelB.length, 10)
+    const row = (date: string, a: string, b: string) =>
+      `${date.padEnd(12)}| ${a.padEnd(col2Width)} | ${b.padEnd(col3Width)}`
+    const sep = `${''.padEnd(12)}| ${''.padEnd(col2Width, '-')} | ${''.padEnd(col3Width, '-')}`
+    const tableHeader = row(col1, labelA, labelB)
+    const rows = days.map((d) => {
+      const aVal = d[varA as keyof DayData]
+      const bVal = d[varB as keyof DayData]
+      const fmt = (v: unknown) => v == null ? '—' : typeof v === 'number' ? (Number.isInteger(v) ? String(v) : v.toFixed(1)) : String(v)
+      return row(d.date, fmt(aVal), fmt(bVal))
+    })
+    return `${header}\n${tableHeader}\n${sep}\n${rows.join('\n')}`
+  }
 
   // ── Chat state ──────────────────────────────────────────────────────────────
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -152,6 +180,20 @@ export default function Analyze() {
 
   return (
     <div className="flex flex-col h-full">
+      {chartMenu && (
+        <ContextMenu
+          x={chartMenu.x}
+          y={chartMenu.y}
+          onSave={() => addSnippet({
+            capturedDate: today,
+            source: 'analyze',
+            label: `${CHART_VARS[varA].label} vs ${CHART_VARS[varB].label}`,
+            text: buildChartTable(chartDays, varA, varB, numDays),
+          })}
+          onClose={() => setChartMenu(null)}
+        />
+      )}
+
       {/* Header */}
       <div className="drag-region px-5 pt-10 pb-2">
         <h1 className="text-xl font-bold no-drag">Analyze</h1>
@@ -287,7 +329,13 @@ export default function Analyze() {
               Loading…
             </div>
           ) : (
-            <WeekChart days={chartDays} varA={varA} varB={varB} numDays={numDays} />
+            <WeekChart
+              days={chartDays}
+              varA={varA}
+              varB={varB}
+              numDays={numDays}
+              onContextMenu={(e) => { e.preventDefault(); setChartMenu({ x: e.clientX, y: e.clientY }) }}
+            />
           )}
         </div>
       </div>

@@ -633,7 +633,8 @@ function registerIpcHandlers(): void {
     'check-ollama', 'generate-summary', 'generate-warnings',
     'list-screenings', 'save-screening',
     'start-chat', 'read-chat-history', 'write-chat-history',
-    'connect-ynab', 'sync-ynab', 'read-ynab-csv', 'disconnect-ynab'
+    'connect-ynab', 'sync-ynab', 'read-ynab-csv', 'disconnect-ynab',
+    'read-clinician-notes', 'write-clinician-notes'
   ]
   for (const ch of channels) ipcMain.removeHandler(ch)
 
@@ -922,6 +923,19 @@ function registerIpcHandlers(): void {
     void ynabPat; void ynabBudgetId; void ynabBudgetName; void ynabEnabled
     writeConfig(vaultPath, rest)
   })
+
+  // Clinician notes
+  ipcMain.handle('read-clinician-notes', () => {
+    const vaultPath = getVaultPath()
+    if (!vaultPath) return []
+    return readClinicianNotes(vaultPath)
+  })
+
+  ipcMain.handle('write-clinician-notes', (_e, notes: ClinicianSnippet[]) => {
+    const vaultPath = getVaultPath()
+    if (!vaultPath) return
+    writeClinicianNotes(vaultPath, notes)
+  })
 }
 
 // ─── Screenings ───────────────────────────────────────────────────────────────
@@ -1091,6 +1105,32 @@ function buildChatContext(vaultPath: string): string {
   }
 
   return sections.join('\n\n')
+}
+
+// ─── Clinician notes ──────────────────────────────────────────────────────────
+interface ClinicianSnippet {
+  id: string
+  savedAt: string
+  capturedDate: string
+  source: 'check-in' | 'analyze'
+  label: string
+  text: string
+}
+
+function getClinicianNotesPath(vaultPath: string): string {
+  return join(vaultPath, '.baseline', 'clinician-notes.json')
+}
+
+function readClinicianNotes(vaultPath: string): ClinicianSnippet[] {
+  const p = getClinicianNotesPath(vaultPath)
+  if (!existsSync(p)) return []
+  try { return JSON.parse(readFileSync(p, 'utf-8')) } catch { return [] }
+}
+
+function writeClinicianNotes(vaultPath: string, notes: ClinicianSnippet[]): void {
+  const dir = join(vaultPath, '.baseline')
+  mkdirSync(dir, { recursive: true })
+  writeFileSync(getClinicianNotesPath(vaultPath), JSON.stringify(notes, null, 2), 'utf-8')
 }
 
 function getChatHistoryPath(vaultPath: string, mode: 'daily' | 'persistent'): string {

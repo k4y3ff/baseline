@@ -117,7 +117,11 @@ const baseline = {
   connectYnab: (pat: string): Promise<YnabBudget[]> => ipcRenderer.invoke('connect-ynab', pat),
   syncYnab: (days?: number): Promise<SpendingRow[]> => ipcRenderer.invoke('sync-ynab', days ?? 30),
   readYnabCsv: (): Promise<SpendingRow[]> => ipcRenderer.invoke('read-ynab-csv'),
-  disconnectYnab: (): Promise<void> => ipcRenderer.invoke('disconnect-ynab')
+  disconnectYnab: (): Promise<void> => ipcRenderer.invoke('disconnect-ynab'),
+
+  // Clinician notes
+  readClinicianNotes: (): Promise<unknown[]> => ipcRenderer.invoke('read-clinician-notes'),
+  writeClinicianNotes: (notes: unknown[]): Promise<void> => ipcRenderer.invoke('write-clinician-notes', notes)
 }
 
 if (process.contextIsolated) {
