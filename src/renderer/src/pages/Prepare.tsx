@@ -351,10 +351,11 @@ function AppointmentCard({ appointment, snippets, onDelete, onUpdate, onAssignSn
 }
 
 // ─── Appointment Detail Panel ─────────────────────────────────────────────────
-function AppointmentDetail({ appointment, snippets, onClose }: {
+function AppointmentDetail({ appointment, snippets, onClose, onUnassignSnippet }: {
   appointment: Appointment
   snippets: ClinicianSnippet[]
   onClose: () => void
+  onUnassignSnippet: (snippetId: string) => void
 }) {
   const assignedSnippets = snippets.filter((s) => appointment.snippetIds.includes(s.id))
   const panelRef = useRef<HTMLDivElement>(null)
@@ -414,10 +415,21 @@ function AppointmentDetail({ appointment, snippets, onClose }: {
           assignedSnippets.map((s, i) => (
             <div key={s.id}>
               {i > 0 && <div className="border-t border-[--color-border] mb-4" />}
-              <p className="text-xs font-semibold text-[--color-muted] uppercase tracking-wider mb-1">
-                {s.label}
-              </p>
-              <p className="text-xs text-[--color-muted] mb-2">{s.capturedDate}</p>
+              <div className="flex items-start justify-between gap-2 mb-1">
+                <div>
+                  <p className="text-xs font-semibold text-[--color-muted] uppercase tracking-wider">
+                    {s.label}
+                  </p>
+                  <p className="text-xs text-[--color-muted] mt-0.5">{s.capturedDate}</p>
+                </div>
+                <button
+                  onClick={() => onUnassignSnippet(s.id)}
+                  className="text-[--color-muted] hover:text-red-400 transition-colors text-xs shrink-0 mt-0.5"
+                  title="Remove from appointment"
+                >
+                  ✕
+                </button>
+              </div>
               {s.chartMeta ? (
                 <div className="mt-2">
                   <WeekChart
@@ -656,6 +668,7 @@ export default function Prepare() {
               appointment={selectedAppt}
               snippets={snippets}
               onClose={() => setSelectedApptId(null)}
+              onUnassignSnippet={(snippetId) => unassignSnippet(selectedAppt.id, snippetId)}
             />
           )}
         </div>
