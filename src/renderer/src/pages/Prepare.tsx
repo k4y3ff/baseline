@@ -70,12 +70,13 @@ function CreateAppointmentForm({ onSave, onCancel }: {
 }
 
 // ─── Appointment Card ─────────────────────────────────────────────────────────
-function AppointmentCard({ appointment, snippets, onDelete, onAssignSnippet, onUnassignSnippet }: {
+function AppointmentCard({ appointment, snippets, onDelete, onAssignSnippet, onUnassignSnippet, onClick }: {
   appointment: Appointment
   snippets: ClinicianSnippet[]
   onDelete: () => void
   onAssignSnippet: (snippetId: string) => void
   onUnassignSnippet: (snippetId: string) => void
+  onClick: () => void
 }) {
   const [isDragOver, setIsDragOver] = useState(false)
 
@@ -87,7 +88,6 @@ function AppointmentCard({ appointment, snippets, onDelete, onAssignSnippet, onU
   }
 
   const handleDragLeave = (e: React.DragEvent) => {
-    // Only clear if leaving the card itself, not a child element
     if (!e.currentTarget.contains(e.relatedTarget as Node)) {
       setIsDragOver(false)
     }
@@ -102,13 +102,14 @@ function AppointmentCard({ appointment, snippets, onDelete, onAssignSnippet, onU
 
   return (
     <div
+      onClick={onClick}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className={`rounded-xl border p-3 transition-colors ${
+      className={`rounded-xl border p-3 cursor-pointer transition-colors ${
         isDragOver
           ? 'bg-[--color-surface] border-[--color-muted]'
-          : 'bg-[--color-surface-2] border-[--color-border]'
+          : 'bg-[--color-surface-2] border-[--color-border] hover:border-[--color-muted]'
       }`}
     >
       <div className="flex items-start justify-between gap-2 mb-2">
@@ -121,7 +122,7 @@ function AppointmentCard({ appointment, snippets, onDelete, onAssignSnippet, onU
           )}
         </div>
         <button
-          onClick={onDelete}
+          onClick={(e) => { e.stopPropagation(); onDelete() }}
           className="text-[--color-muted] hover:text-red-400 transition-colors text-xs shrink-0"
           title="Delete appointment"
         >
@@ -138,7 +139,7 @@ function AppointmentCard({ appointment, snippets, onDelete, onAssignSnippet, onU
                 {s.label} · {s.capturedDate}
               </span>
               <button
-                onClick={() => onUnassignSnippet(s.id)}
+                onClick={(e) => { e.stopPropagation(); onUnassignSnippet(s.id) }}
                 className="text-[--color-muted] hover:text-red-400 transition-colors text-xs opacity-0 group-hover:opacity-100 shrink-0"
                 title="Remove from appointment"
               >
@@ -156,11 +157,73 @@ function AppointmentCard({ appointment, snippets, onDelete, onAssignSnippet, onU
   )
 }
 
+// ─── Appointment Detail Panel ─────────────────────────────────────────────────
+function AppointmentDetail({ appointment, snippets, onClose }: {
+  appointment: Appointment
+  snippets: ClinicianSnippet[]
+  onClose: () => void
+}) {
+  const assignedSnippets = snippets.filter((s) => appointment.snippetIds.includes(s.id))
+
+  return (
+    <div className="absolute inset-0 flex flex-col" style={{ background: 'var(--color-surface)' }}>
+      {/* Panel header */}
+      <div className="drag-region px-5 pt-10 pb-4 shrink-0">
+        <div className="no-drag flex items-start gap-3">
+          <button
+            onClick={onClose}
+            className="text-[--color-muted] hover:text-[--color-text] transition-colors mt-0.5 shrink-0"
+            title="Back"
+          >
+            ←
+          </button>
+          <div className="min-w-0">
+            <h2 className="text-xl font-bold leading-tight">{formatDate(appointment.date)}</h2>
+            {appointment.title && (
+              <p className="text-[--color-muted] text-sm mt-0.5">{appointment.title}</p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Panel content */}
+      <div className="flex-1 overflow-y-auto px-5 pb-6 flex flex-col gap-4">
+        {assignedSnippets.length === 0 ? (
+          <p className="text-sm text-[--color-muted] italic">
+            No items added yet. Drag items from the queue below.
+          </p>
+        ) : (
+          assignedSnippets.map((s, i) => (
+            <div key={s.id}>
+              {i > 0 && <div className="border-t border-[--color-border] mb-4" />}
+              <p className="text-xs font-semibold text-[--color-muted] uppercase tracking-wider mb-1">
+                {s.label}
+              </p>
+              <p className="text-xs text-[--color-muted] mb-2">{s.capturedDate}</p>
+              <pre className="text-xs text-[--color-text] whitespace-pre-wrap font-mono leading-relaxed">
+                {s.text}
+              </pre>
+              {s.comment && (
+                <p className="text-xs text-[--color-muted] italic mt-2 border-t border-[--color-border] pt-2">
+                  {s.comment}
+                </p>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function Prepare() {
   const { snippets, deleteSnippet, clearAll } = useClinicianNotes()
   const { appointments, addAppointment, deleteAppointment, assignSnippet, unassignSnippet } = useAppointments()
   const [creatingAppointment, setCreatingAppointment] = useState(false)
+  const [selectedApptId, setSelectedApptId] = useState<string | null>(null)
+
+  const selectedAppt = appointments.find((a) => a.id === selectedApptId) ?? null
 
   // Group snippets by capturedDate descending
   const byDate = new Map<string, ClinicianSnippet[]>()
@@ -191,126 +254,145 @@ export default function Prepare() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="drag-region px-5 pt-10 pb-4">
-        <div className="no-drag flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold">Prepare</h1>
-            <p className="text-[--color-muted] text-sm mt-0.5">Saved for your clinician</p>
+      {/* Header — hidden when detail panel is open (panel has its own header) */}
+      {!selectedAppt && (
+        <div className="drag-region px-5 pt-10 pb-4 shrink-0">
+          <div className="no-drag flex items-center justify-between">
+            <div>
+              <h1 className="text-xl font-bold">Prepare</h1>
+              <p className="text-[--color-muted] text-sm mt-0.5">Saved for your clinician</p>
+            </div>
+            {snippets.length > 0 && (
+              <div className="flex gap-2">
+                <button
+                  onClick={handleCopyAll}
+                  className="text-xs px-3 py-1.5 rounded-lg border border-[--color-border] hover:border-[--color-muted] transition-colors"
+                >
+                  Copy all
+                </button>
+                <button
+                  onClick={handleClearAll}
+                  className="text-xs px-3 py-1.5 rounded-lg border border-[--color-border] text-[--color-muted] hover:text-red-400 hover:border-red-400 transition-colors"
+                >
+                  Clear all
+                </button>
+              </div>
+            )}
           </div>
-          {snippets.length > 0 && (
-            <div className="flex gap-2">
-              <button
-                onClick={handleCopyAll}
-                className="text-xs px-3 py-1.5 rounded-lg border border-[--color-border] hover:border-[--color-muted] transition-colors"
-              >
-                Copy all
-              </button>
-              <button
-                onClick={handleClearAll}
-                className="text-xs px-3 py-1.5 rounded-lg border border-[--color-border] text-[--color-muted] hover:text-red-400 hover:border-red-400 transition-colors"
-              >
-                Clear all
-              </button>
+        </div>
+      )}
+
+      <div className="flex-1 overflow-hidden relative">
+        {/* Main scrollable content */}
+        <div className="h-full overflow-y-auto px-5 pb-6 flex flex-col gap-6">
+          {/* Appointments section */}
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold text-[--color-muted] uppercase tracking-wider">
+                Appointments
+              </p>
+              {!creatingAppointment && (
+                <button
+                  onClick={() => setCreatingAppointment(true)}
+                  className="text-xs px-3 py-1.5 rounded-lg border border-[--color-border] hover:border-[--color-muted] transition-colors"
+                >
+                  Add Appointment
+                </button>
+              )}
+            </div>
+
+            {creatingAppointment && (
+              <CreateAppointmentForm
+                onSave={handleCreateAppointment}
+                onCancel={() => setCreatingAppointment(false)}
+              />
+            )}
+
+            {appointments.length === 0 && !creatingAppointment && (
+              <p className="text-xs text-[--color-muted] italic">No appointments yet.</p>
+            )}
+
+            {appointments.map((appt) => (
+              <AppointmentCard
+                key={appt.id}
+                appointment={appt}
+                snippets={snippets}
+                onDelete={() => deleteAppointment(appt.id)}
+                onAssignSnippet={(snippetId) => assignSnippet(appt.id, snippetId)}
+                onUnassignSnippet={(snippetId) => unassignSnippet(appt.id, snippetId)}
+                onClick={() => setSelectedApptId(appt.id)}
+              />
+            ))}
+          </div>
+
+          {/* Saved snippets queue (unassigned only) */}
+          {snippets.length === 0 ? (
+            <div className="flex flex-1 items-center justify-center">
+              <p className="text-[--color-muted] text-sm text-center leading-relaxed">
+                No saved items yet.<br />
+                Right-click any section to save it here.
+              </p>
+            </div>
+          ) : unassignedSnippets.length === 0 ? (
+            <p className="text-xs text-[--color-muted] italic">All items assigned to appointments.</p>
+          ) : (
+            <div className="flex flex-col gap-6">
+              {dates.map((date) => {
+                const dateSnippets = byDate.get(date)!.filter((s) => !assignedSnippetIds.has(s.id))
+                if (dateSnippets.length === 0) return null
+                return (
+                  <div key={date}>
+                    <p className="text-xs font-semibold text-[--color-muted] uppercase tracking-wider mb-2">
+                      {formatDate(date)}
+                    </p>
+                    <div className="flex flex-col gap-2">
+                      {dateSnippets.map((snippet) => (
+                        <div
+                          key={snippet.id}
+                          draggable
+                          onDragStart={(e) => e.dataTransfer.setData('snippetId', snippet.id)}
+                          className="bg-[--color-surface-2] rounded-xl border border-[--color-border] p-3 cursor-grab active:cursor-grabbing"
+                        >
+                          <div className="flex items-start justify-between gap-2 mb-1.5">
+                            <span className="text-xs font-medium text-[--color-muted] truncate">{snippet.label}</span>
+                            <button
+                              onClick={() => deleteSnippet(snippet.id)}
+                              className="text-[--color-muted] hover:text-red-400 transition-colors text-xs shrink-0"
+                              title="Remove"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                          <pre className="text-xs text-[--color-text] whitespace-pre-wrap font-mono leading-relaxed">
+                            {snippet.text}
+                          </pre>
+                          {snippet.comment && (
+                            <p className="text-xs text-[--color-muted] italic mt-2 border-t border-[--color-border] pt-2">
+                              {snippet.comment}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           )}
         </div>
-      </div>
 
-      <div className="flex-1 overflow-y-auto px-5 pb-6 flex flex-col gap-6">
-        {/* Appointments section */}
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold text-[--color-muted] uppercase tracking-wider">
-              Appointments
-            </p>
-            {!creatingAppointment && (
-              <button
-                onClick={() => setCreatingAppointment(true)}
-                className="text-xs px-3 py-1.5 rounded-lg border border-[--color-border] hover:border-[--color-muted] transition-colors"
-              >
-                Add Appointment
-              </button>
-            )}
-          </div>
-
-          {creatingAppointment && (
-            <CreateAppointmentForm
-              onSave={handleCreateAppointment}
-              onCancel={() => setCreatingAppointment(false)}
-            />
-          )}
-
-          {appointments.length === 0 && !creatingAppointment && (
-            <p className="text-xs text-[--color-muted] italic">No appointments yet.</p>
-          )}
-
-          {appointments.map((appt) => (
-            <AppointmentCard
-              key={appt.id}
-              appointment={appt}
+        {/* Slide-in detail panel */}
+        <div className={`absolute inset-0 transition-transform duration-200 ease-in-out ${
+          selectedAppt ? 'translate-x-0' : 'translate-x-full'
+        }`}>
+          {selectedAppt && (
+            <AppointmentDetail
+              appointment={selectedAppt}
               snippets={snippets}
-              onDelete={() => deleteAppointment(appt.id)}
-              onAssignSnippet={(snippetId) => assignSnippet(appt.id, snippetId)}
-              onUnassignSnippet={(snippetId) => unassignSnippet(appt.id, snippetId)}
+              onClose={() => setSelectedApptId(null)}
             />
-          ))}
+          )}
         </div>
-
-        {/* Saved snippets queue (unassigned only) */}
-        {snippets.length === 0 ? (
-          <div className="flex flex-1 items-center justify-center">
-            <p className="text-[--color-muted] text-sm text-center leading-relaxed">
-              No saved items yet.<br />
-              Right-click any section to save it here.
-            </p>
-          </div>
-        ) : unassignedSnippets.length === 0 ? (
-          <p className="text-xs text-[--color-muted] italic">All items assigned to appointments.</p>
-        ) : (
-          <div className="flex flex-col gap-6">
-            {dates.map((date) => {
-              const dateSnippets = byDate.get(date)!.filter((s) => !assignedSnippetIds.has(s.id))
-              if (dateSnippets.length === 0) return null
-              return (
-                <div key={date}>
-                  <p className="text-xs font-semibold text-[--color-muted] uppercase tracking-wider mb-2">
-                    {formatDate(date)}
-                  </p>
-                  <div className="flex flex-col gap-2">
-                    {dateSnippets.map((snippet) => (
-                      <div
-                        key={snippet.id}
-                        draggable
-                        onDragStart={(e) => e.dataTransfer.setData('snippetId', snippet.id)}
-                        className="bg-[--color-surface-2] rounded-xl border border-[--color-border] p-3 cursor-grab active:cursor-grabbing"
-                      >
-                        <div className="flex items-start justify-between gap-2 mb-1.5">
-                          <span className="text-xs font-medium text-[--color-muted] truncate">{snippet.label}</span>
-                          <button
-                            onClick={() => deleteSnippet(snippet.id)}
-                            className="text-[--color-muted] hover:text-red-400 transition-colors text-xs shrink-0"
-                            title="Remove"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                        <pre className="text-xs text-[--color-text] whitespace-pre-wrap font-mono leading-relaxed">
-                          {snippet.text}
-                        </pre>
-                        {snippet.comment && (
-                          <p className="text-xs text-[--color-muted] italic mt-2 border-t border-[--color-border] pt-2">
-                            {snippet.comment}
-                          </p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
       </div>
     </div>
   )
