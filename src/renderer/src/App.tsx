@@ -5,6 +5,7 @@ import Dashboard from './pages/Dashboard'
 import Analyze from './pages/Analyze'
 import CheckIn from './pages/CheckIn'
 import History from './pages/History'
+import Prepare from './pages/Prepare'
 import Screening from './pages/Screening'
 import Settings from './pages/Settings'
 import Nav from './components/ui/Nav'
@@ -42,6 +43,7 @@ export default function App() {
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/analyze" element={<Analyze />} />
+            <Route path="/prepare" element={<Prepare />} />
             <Route path="/check-in" element={<CheckIn />} />
             <Route path="/check-in/:date" element={<CheckIn />} />
             <Route path="/history" element={<History />} />
