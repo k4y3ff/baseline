@@ -11,7 +11,7 @@ export default function AppLogo({ width = 120 }: Props) {
   const svgHeight = Math.round((20 / 340) * width)
 
   return (
-    <div className="flex flex-col items-start" style={{ gap: 5 }}>
+    <div className="flex flex-col items-center" style={{ gap: 5 }}>
       <span
         style={{
           fontFamily: '-apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif',

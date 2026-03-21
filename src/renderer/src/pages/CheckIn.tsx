@@ -4,6 +4,7 @@ import { formatCheckIn, parseCheckIn } from '../lib/checkInFormat'
 import { useConfig } from '../hooks/useConfig'
 import { useClinicianNotes } from '../hooks/useClinicianNotes'
 import ContextMenu from '../components/ui/ContextMenu'
+import PageHeader from '../components/ui/PageHeader'
 import type { OuraRow } from '../types'
 
 const MOOD_LABELS: string[] = ['', '😞', '😕', '😐', '🙂', '😄']
@@ -125,24 +126,13 @@ export default function CheckIn() {
         />
       )}
 
-      {/* Header */}
-      <div className="drag-region px-5 pt-[44px] pb-4">
-        <div className="no-drag">
-          <h1 className="text-xl font-bold">
-            {existing
-              ? `Edit log`
-              : date === todayStr() ? 'How are you doing?' : 'Log this day'}
-          </h1>
-          <p className="text-[--color-muted] text-sm mt-0.5">
-            {new Date(date + 'T12:00:00').toLocaleDateString('en-US', {
-              weekday: 'long', month: 'long', day: 'numeric'
-            })}
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title={<span className="text-sm font-semibold">{existing ? 'Edit log' : date === todayStr() ? 'Today' : 'Log this day'}</span>}
+        right={<span className="text-xs text-[--color-muted]">{new Date(date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>}
+      />
 
       <div
-        className="flex-1 overflow-y-auto px-5 flex flex-col gap-6 pb-6"
+        className="flex-1 overflow-y-auto px-5 pt-5 flex flex-col gap-6 pb-6"
         onContextMenu={(e) => {
           const text = formatCheckIn({
             date, mood, energy, notes,

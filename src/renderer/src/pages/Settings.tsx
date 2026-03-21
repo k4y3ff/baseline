@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import PageHeader from '../components/ui/PageHeader'
 import { useConfig } from '../hooks/useConfig'
 import { ALL_SCREENINGS, FREQUENCY_LABELS } from '../lib/screenings'
 import type { ScreeningFrequency } from '../lib/screenings'
@@ -172,11 +173,9 @@ export default function Settings() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="drag-region px-5 pt-[44px] pb-4">
-        <h1 className="no-drag text-xl font-bold">Settings</h1>
-      </div>
+      <PageHeader title={<span className="text-sm font-semibold">Settings</span>} />
 
-      <div className="flex-1 overflow-y-auto px-5 flex flex-col gap-6 pb-6">
+      <div className="flex-1 overflow-y-auto px-5 pt-5 flex flex-col gap-6 pb-6">
         {/* Logging Fields */}
         <section className="flex flex-col gap-3">
           <h2 className="text-xs font-semibold text-[--color-muted] uppercase tracking-wider">

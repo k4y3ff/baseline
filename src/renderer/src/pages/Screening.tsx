@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { SCREENING_MAP, severityColor } from '../lib/screenings'
 import { useScreenings } from '../hooks/useScreenings'
+import PageHeader from '../components/ui/PageHeader'
 import type { ScreeningResult } from '../types'
 
 function localDateStr(): string {
@@ -68,31 +69,16 @@ export default function Screening() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="drag-region px-5 pt-[44px] pb-3">
-        <div className="no-drag flex items-start justify-between gap-2">
-          <div className="flex-1 min-w-0">
-            <h1 className="text-xl font-bold">{def.id}</h1>
-            <p className="text-[--color-muted] text-xs mt-0.5">
-              {isReadOnly
-                ? new Date(displayDate + 'T12:00:00').toLocaleDateString('en-US', {
-                    weekday: 'long', month: 'long', day: 'numeric',
-                  })
-                : def.fullName}
-            </p>
-          </div>
-          {isReadOnly && existingResult && (
-            <div className="text-right shrink-0">
-              <p className="text-2xl font-bold">{existingResult.score}</p>
-              <p className={`text-xs font-medium ${severityColor(existingResult.severity)}`}>
-                {existingResult.severity}
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        title={<span className="text-sm font-semibold">{def.id}</span>}
+        right={isReadOnly && existingResult ? (
+          <span className={`text-xs font-semibold ${severityColor(existingResult.severity)}`}>
+            {existingResult.score} · {existingResult.severity}
+          </span>
+        ) : undefined}
+      />
 
-      <div className="flex-1 overflow-y-auto px-5 flex flex-col gap-5 pb-6">
+      <div className="flex-1 overflow-y-auto px-5 pt-5 flex flex-col gap-5 pb-6">
         {/* Instructions */}
         {!isReadOnly && (
           <p className="text-sm text-[--color-muted] leading-relaxed">{def.subtitle}</p>

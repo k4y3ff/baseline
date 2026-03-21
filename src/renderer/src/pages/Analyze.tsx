@@ -6,6 +6,7 @@ import { useClinicianNotes } from '../hooks/useClinicianNotes'
 import WeekChart, { CHART_VARS, CHART_VAR_KEYS } from '../components/charts/WeekChart'
 import type { ChartVarKey } from '../components/charts/WeekChart'
 import ContextMenu from '../components/ui/ContextMenu'
+import PageHeader from '../components/ui/PageHeader'
 import type { Config, DayData } from '../types'
 
 function enabledVarKeysFor(config: Config): ChartVarKey[] {
@@ -197,12 +198,9 @@ export default function Analyze() {
         />
       )}
 
-      {/* Header */}
-      <div className="drag-region px-5 pt-[44px] pb-2">
-        <h1 className="no-drag text-xl font-bold">Analyze</h1>
-      </div>
+      <PageHeader title={<span className="text-sm font-semibold">Analyze</span>} />
 
-      <div className="flex-1 overflow-y-auto px-5 flex flex-col gap-5 pb-6">
+      <div className="flex-1 overflow-y-auto px-5 pt-5 flex flex-col gap-5 pb-6">
         {/* Chat panel — only when enabled in Settings */}
         {config.chatEnabled && (
           <div className="bg-[--color-surface-2] rounded-xl border border-[--color-border] flex flex-col overflow-hidden">

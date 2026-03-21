@@ -6,6 +6,7 @@ import { useScreenings } from '../hooks/useScreenings'
 import { SCREENING_MAP, isDue } from '../lib/screenings'
 import type { ScreeningFrequency } from '../lib/screenings'
 import AppLogo from '../components/ui/AppLogo'
+import PageHeader from '../components/ui/PageHeader'
 
 const MOOD_EMOJI = ['', '😞', '😕', '😐', '🙂', '😄']
 
@@ -183,21 +184,16 @@ export default function Dashboard() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="drag-region px-5 pt-[44px] pb-3">
-        <div className="no-drag flex items-center justify-between">
-          <AppLogo width={108} />
-          {syncing ? (
-            <span className="text-[--color-muted] text-xs">Syncing…</span>
-          ) : (
-            <span className="text-[--color-muted] text-xs">
-              {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-            </span>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        title={<AppLogo width={90} />}
+        right={
+          <span className="text-[--color-muted] text-xs">
+            {syncing ? 'Syncing…' : new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+          </span>
+        }
+      />
 
-      <div className="flex-1 overflow-y-auto px-5 pb-6 grid grid-cols-1 gap-5 auto-rows-min content-start sm:grid-cols-2">
+      <div className="flex-1 overflow-y-auto px-5 pt-5 pb-6 grid grid-cols-1 gap-5 auto-rows-min content-start sm:grid-cols-2">
         {/* Today metrics */}
         <div className="flex gap-2 sm:col-span-2">
           <MetricCard label="Readiness" value={today?.readiness_score ?? null} />

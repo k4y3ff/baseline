@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { useDashboard } from '../hooks/useDashboard'
 import { useScreenings } from '../hooks/useScreenings'
 import DayRow from '../components/ui/DayRow'
+import PageHeader from '../components/ui/PageHeader'
 import { severityColor } from '../lib/screenings'
 
 export default function History() {
@@ -11,14 +12,9 @@ export default function History() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="drag-region px-5 pt-[44px] pb-4">
-        <div className="no-drag">
-          <h1 className="text-xl font-bold">History</h1>
-          <p className="text-[--color-muted] text-xs mt-0.5">Last 14 days</p>
-        </div>
-      </div>
+      <PageHeader title={<span className="text-sm font-semibold">History</span>} />
 
-      <div className="flex-1 overflow-y-auto px-5 pb-6 flex flex-col gap-5">
+      <div className="flex-1 overflow-y-auto px-5 pt-5 pb-6 flex flex-col gap-5">
         {/* Screening results */}
         {!screeningsLoading && screeningResults.length > 0 && (
           <section className="flex flex-col gap-2">

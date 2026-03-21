@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import PageHeader from '../components/ui/PageHeader'
 import { useClinicianNotes } from '../hooks/useClinicianNotes'
 import { useAppointments } from '../hooks/useAppointments'
 import WeekChart from '../components/charts/WeekChart'
@@ -188,40 +189,33 @@ function AppointmentDetail({ appointment, snippets, onClose }: {
 
   return (
     <div ref={panelRef} className="absolute inset-0 flex flex-col" style={{ background: 'var(--color-surface)' }}>
-      {/* Panel header */}
-      <div className="drag-region px-5 pt-[44px] pb-4 shrink-0">
-        <div className="no-drag flex items-start justify-between">
-          <div className="flex items-start gap-3">
-            <button
-              onClick={onClose}
-              className="text-[--color-muted] hover:text-[--color-text] transition-colors mt-0.5 shrink-0"
-              title="Back"
-            >
-              ←
-            </button>
-            <div className="min-w-0">
-              <h2 className="text-xl font-bold leading-tight">{formatDate(appointment.date)}</h2>
-              {appointment.title && (
-                <p className="text-[--color-muted] text-sm mt-0.5">{appointment.title}</p>
-              )}
-            </div>
+      <PageHeader
+        title={
+          <div className="flex flex-col items-center">
+            <span className="text-sm font-semibold">{appointment.title || formatDate(appointment.date)}</span>
+            {appointment.title && <span className="text-[10px] text-[--color-muted]">{formatDate(appointment.date)}</span>}
           </div>
+        }
+        left={
+          <button onClick={onClose} className="text-[--color-muted] hover:text-white transition-colors text-lg leading-none" title="Back">←</button>
+        }
+        right={
           <button
             onClick={handleExport}
             disabled={isExporting}
             title="Export as PDF"
-            className="text-[--color-muted] hover:text-[--color-text] transition-colors shrink-0 mt-0.5 disabled:opacity-40"
+            className="text-[--color-muted] hover:text-white transition-colors disabled:opacity-40"
           >
             <svg width="15" height="15" viewBox="0 0 15 15" fill="currentColor">
               <path d="M7.5 11L4 7.5h2.25V2h2.5v5.5H11L7.5 11z"/>
               <path d="M2 12.5h11V14H2z"/>
             </svg>
           </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Panel content */}
-      <div className="flex-1 overflow-y-auto px-5 pb-6 flex flex-col gap-4">
+      <div className="flex-1 overflow-y-auto px-5 pt-5 pb-6 flex flex-col gap-4">
         {assignedSnippets.length === 0 ? (
           <p className="text-sm text-[--color-muted] italic">
             No items added yet. Drag items from the queue below.
@@ -301,35 +295,30 @@ export default function Prepare() {
     <div className="flex flex-col h-full">
       {/* Header — hidden when detail panel is open (panel has its own header) */}
       {!selectedAppt && (
-        <div className="drag-region px-5 pt-[44px] pb-4 shrink-0">
-          <div className="no-drag flex items-center justify-between">
-            <div>
-              <h1 className="text-xl font-bold">Prepare</h1>
-              <p className="text-[--color-muted] text-sm mt-0.5">Saved for your clinician</p>
+        <PageHeader
+          title={<span className="text-sm font-semibold">Prepare</span>}
+          right={snippets.length > 0 ? (
+            <div className="flex gap-2">
+              <button
+                onClick={handleCopyAll}
+                className="text-xs px-2.5 py-1 rounded-lg border border-[--color-border] hover:border-[--color-muted] transition-colors"
+              >
+                Copy all
+              </button>
+              <button
+                onClick={handleClearAll}
+                className="text-xs px-2.5 py-1 rounded-lg border border-[--color-border] text-[--color-muted] hover:text-red-400 hover:border-red-400 transition-colors"
+              >
+                Clear all
+              </button>
             </div>
-            {snippets.length > 0 && (
-              <div className="flex gap-2">
-                <button
-                  onClick={handleCopyAll}
-                  className="text-xs px-3 py-1.5 rounded-lg border border-[--color-border] hover:border-[--color-muted] transition-colors"
-                >
-                  Copy all
-                </button>
-                <button
-                  onClick={handleClearAll}
-                  className="text-xs px-3 py-1.5 rounded-lg border border-[--color-border] text-[--color-muted] hover:text-red-400 hover:border-red-400 transition-colors"
-                >
-                  Clear all
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
+          ) : undefined}
+        />
       )}
 
       <div className="flex-1 overflow-hidden relative">
         {/* Main scrollable content */}
-        <div className="h-full overflow-y-auto px-5 pb-6 flex flex-col gap-6">
+        <div className="h-full overflow-y-auto px-5 pt-5 pb-6 flex flex-col gap-6">
           {/* Appointments section */}
           <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between">
