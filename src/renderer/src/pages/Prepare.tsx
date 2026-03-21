@@ -97,15 +97,23 @@ function CreateAppointmentForm({ onSave, onCancel }: {
 }
 
 // ─── Appointment Card ─────────────────────────────────────────────────────────
-function AppointmentCard({ appointment, snippets, onDelete, onAssignSnippet, onUnassignSnippet, onClick }: {
+function AppointmentCard({ appointment, snippets, onDelete, onUpdate, onAssignSnippet, onUnassignSnippet, onClick }: {
   appointment: Appointment
   snippets: ClinicianSnippet[]
   onDelete: () => void
+  onUpdate: (fields: Partial<Pick<Appointment, 'date' | 'title' | 'type'>>) => void
   onAssignSnippet: (snippetId: string) => void
   onUnassignSnippet: (snippetId: string) => void
   onClick: () => void
 }) {
   const [isDragOver, setIsDragOver] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+
+  const isCustomType = appointment.type && !APPOINTMENT_TYPES.slice(0, -1).includes(appointment.type)
+  const [editDate, setEditDate] = useState(appointment.date)
+  const [editType, setEditType] = useState(isCustomType ? 'Other...' : (appointment.type ?? APPOINTMENT_TYPES[0]))
+  const [editCustomType, setEditCustomType] = useState(isCustomType ? (appointment.type ?? '') : '')
+  const [editTitle, setEditTitle] = useState(appointment.title ?? '')
 
   const assignedSnippets = snippets.filter((s) => appointment.snippetIds.includes(s.id))
 
@@ -127,65 +135,144 @@ function AppointmentCard({ appointment, snippets, onDelete, onAssignSnippet, onU
     if (snippetId) onAssignSnippet(snippetId)
   }
 
+  const handleEditSave = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    const resolvedType = editType === 'Other...' ? editCustomType : editType
+    onUpdate({ date: editDate, title: editTitle, type: resolvedType })
+    setIsEditing(false)
+  }
+
+  const handleEditCancel = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setEditDate(appointment.date)
+    setEditType(isCustomType ? 'Other...' : (appointment.type ?? APPOINTMENT_TYPES[0]))
+    setEditCustomType(isCustomType ? (appointment.type ?? '') : '')
+    setEditTitle(appointment.title ?? '')
+    setIsEditing(false)
+  }
+
   return (
     <div
-      onClick={onClick}
+      onClick={isEditing ? undefined : onClick}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className={`rounded-xl border p-3 cursor-pointer transition-colors ${
-        isDragOver
-          ? 'bg-[--color-surface] border-[--color-muted]'
-          : 'bg-[--color-surface-2] border-[--color-border] hover:border-[--color-muted] hover:bg-white/[0.06]'
+      className={`rounded-xl border p-3 transition-colors ${
+        isEditing
+          ? 'bg-[--color-surface-2] border-[--color-border]'
+          : isDragOver
+          ? 'bg-[--color-surface] border-[--color-muted] cursor-pointer'
+          : 'bg-[--color-surface-2] border-[--color-border] hover:border-[--color-muted] hover:bg-white/[0.06] cursor-pointer'
       }`}
     >
-      <div className="flex items-start justify-between gap-2 mb-2">
-        <div>
-          <div className="flex items-center gap-1.5">
-            <p className="text-xs font-semibold text-[--color-text]">
-              {formatDate(appointment.date)}
-            </p>
-            {appointment.type && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-[--color-surface] border border-[--color-border] text-[--color-muted] leading-none">
-                {appointment.type}
-              </span>
-            )}
-          </div>
-          {appointment.title && (
-            <p className="text-xs text-[--color-muted] mt-0.5">{appointment.title}</p>
+      {isEditing ? (
+        <div className="flex flex-col gap-2" onClick={(e) => e.stopPropagation()}>
+          <input
+            type="date"
+            value={editDate}
+            onChange={(e) => setEditDate(e.target.value)}
+            className="text-xs bg-[--color-surface] border border-[--color-border] rounded-lg px-2.5 py-1.5 text-[--color-text] focus:outline-none focus:border-[--color-muted]"
+          />
+          <select
+            value={editType}
+            onChange={(e) => setEditType(e.target.value)}
+            className="text-xs bg-[--color-surface] border border-[--color-border] rounded-lg px-2.5 py-1.5 text-[--color-text] focus:outline-none focus:border-[--color-muted]"
+          >
+            {APPOINTMENT_TYPES.map((t) => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </select>
+          {editType === 'Other...' && (
+            <input
+              type="text"
+              value={editCustomType}
+              onChange={(e) => setEditCustomType(e.target.value)}
+              placeholder="Appointment type"
+              className="text-xs bg-[--color-surface] border border-[--color-border] rounded-lg px-2.5 py-1.5 text-[--color-text] placeholder:text-[--color-muted] focus:outline-none focus:border-[--color-muted]"
+            />
           )}
-        </div>
-        <button
-          onClick={(e) => { e.stopPropagation(); onDelete() }}
-          className="text-[--color-muted] hover:text-red-400 transition-colors text-xs shrink-0"
-          title="Delete appointment"
-        >
-          ✕
-        </button>
-      </div>
-
-      {assignedSnippets.length > 0 ? (
-        <div className="flex flex-col gap-1">
-          {assignedSnippets.map((s) => (
-            <div key={s.id} className="flex items-center gap-1.5 group">
-              <span className="w-1 h-1 rounded-full bg-[--color-muted] shrink-0" />
-              <span className="text-xs text-[--color-muted] truncate flex-1">
-                {s.label} · {s.capturedDate}
-              </span>
-              <button
-                onClick={(e) => { e.stopPropagation(); onUnassignSnippet(s.id) }}
-                className="text-[--color-muted] hover:text-red-400 transition-colors text-xs opacity-0 group-hover:opacity-100 shrink-0"
-                title="Remove from appointment"
-              >
-                ✕
-              </button>
-            </div>
-          ))}
+          <input
+            type="text"
+            value={editTitle}
+            onChange={(e) => setEditTitle(e.target.value)}
+            placeholder="e.g. Dr. Smith (optional)"
+            className="text-xs bg-[--color-surface] border border-[--color-border] rounded-lg px-2.5 py-1.5 text-[--color-text] placeholder:text-[--color-muted] focus:outline-none focus:border-[--color-muted]"
+          />
+          <div className="flex gap-2 justify-end">
+            <button
+              onClick={handleEditCancel}
+              className="text-xs px-3 py-1.5 rounded-lg border border-[--color-border] text-[--color-muted] hover:border-[--color-muted] hover:bg-white/[0.06] transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleEditSave}
+              className="text-xs px-3 py-1.5 rounded-lg border border-[--color-border] hover:border-[--color-muted] hover:bg-white/[0.06] transition-colors"
+            >
+              Save
+            </button>
+          </div>
         </div>
       ) : (
-        <p className="text-xs text-[--color-muted] italic">
-          {isDragOver ? 'Release to add' : 'Drag items here…'}
-        </p>
+        <>
+          <div className="flex items-start justify-between gap-2 mb-2">
+            <div>
+              <div className="flex items-center gap-1.5">
+                <p className="text-xs font-semibold text-[--color-text]">
+                  {formatDate(appointment.date)}
+                </p>
+                {appointment.type && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-[--color-surface] border border-[--color-border] text-[--color-muted] leading-none">
+                    {appointment.type}
+                  </span>
+                )}
+                <button
+                  onClick={(e) => { e.stopPropagation(); setIsEditing(true) }}
+                  className="text-[--color-muted] hover:text-[--color-text] transition-colors shrink-0"
+                  title="Edit appointment"
+                >
+                  <svg width="11" height="11" viewBox="0 0 15 15" fill="currentColor">
+                    <path d="M11.854.146a.5.5 0 0 0-.707 0l-1.5 1.5 3.707 3.707 1.5-1.5a.5.5 0 0 0 0-.707l-3-3zM9.5 2.5 2 10v3h3l7.5-7.5L9.5 2.5z"/>
+                  </svg>
+                </button>
+              </div>
+              {appointment.title && (
+                <p className="text-xs text-[--color-muted] mt-0.5">{appointment.title}</p>
+              )}
+            </div>
+            <button
+              onClick={(e) => { e.stopPropagation(); onDelete() }}
+              className="text-[--color-muted] hover:text-red-400 transition-colors text-xs shrink-0"
+              title="Delete appointment"
+            >
+              ✕
+            </button>
+          </div>
+
+          {assignedSnippets.length > 0 ? (
+            <div className="flex flex-col gap-1">
+              {assignedSnippets.map((s) => (
+                <div key={s.id} className="flex items-center gap-1.5 group">
+                  <span className="w-1 h-1 rounded-full bg-[--color-muted] shrink-0" />
+                  <span className="text-xs text-[--color-muted] truncate flex-1">
+                    {s.label} · {s.capturedDate}
+                  </span>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onUnassignSnippet(s.id) }}
+                    className="text-[--color-muted] hover:text-red-400 transition-colors text-xs opacity-0 group-hover:opacity-100 shrink-0"
+                    title="Remove from appointment"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-[--color-muted] italic">
+              {isDragOver ? 'Release to add' : 'Drag items here…'}
+            </p>
+          )}
+        </>
       )}
     </div>
   )
@@ -289,7 +376,7 @@ function AppointmentDetail({ appointment, snippets, onClose }: {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function Prepare() {
   const { snippets, deleteSnippet, clearAll } = useClinicianNotes()
-  const { appointments, addAppointment, deleteAppointment, assignSnippet, unassignSnippet } = useAppointments()
+  const { appointments, addAppointment, updateAppointment, deleteAppointment, assignSnippet, unassignSnippet } = useAppointments()
   const [creatingAppointment, setCreatingAppointment] = useState(false)
   const [selectedApptId, setSelectedApptId] = useState<string | null>(null)
 
@@ -383,6 +470,7 @@ export default function Prepare() {
                 appointment={appt}
                 snippets={snippets}
                 onDelete={() => deleteAppointment(appt.id)}
+                onUpdate={(fields) => updateAppointment(appt.id, fields)}
                 onAssignSnippet={(snippetId) => assignSnippet(appt.id, snippetId)}
                 onUnassignSnippet={(snippetId) => unassignSnippet(appt.id, snippetId)}
                 onClick={() => setSelectedApptId(appt.id)}

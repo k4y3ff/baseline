@@ -29,6 +29,14 @@ export function useAppointments() {
     })
   }, [])
 
+  const updateAppointment = useCallback((id: string, fields: Partial<Pick<Appointment, 'date' | 'title' | 'type'>>) => {
+    setAppointments((prev) => {
+      const next = prev.map((a) => a.id === id ? { ...a, ...fields } : a)
+      window.baseline.writeAppointments(next)
+      return next
+    })
+  }, [])
+
   const deleteAppointment = useCallback((id: string) => {
     setAppointments((prev) => {
       const next = prev.filter((a) => a.id !== id)
@@ -61,5 +69,5 @@ export function useAppointments() {
     })
   }, [])
 
-  return { appointments, addAppointment, deleteAppointment, assignSnippet, unassignSnippet }
+  return { appointments, addAppointment, updateAppointment, deleteAppointment, assignSnippet, unassignSnippet }
 }
