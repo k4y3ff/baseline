@@ -1,6 +1,8 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useClinicianNotes } from '../hooks/useClinicianNotes'
 import { useAppointments } from '../hooks/useAppointments'
+import WeekChart from '../components/charts/WeekChart'
+import type { ChartVarKey } from '../components/charts/WeekChart'
 import type { ClinicianSnippet, Appointment } from '../types'
 
 const today = new Date().toISOString().split('T')[0]
@@ -164,25 +166,57 @@ function AppointmentDetail({ appointment, snippets, onClose }: {
   onClose: () => void
 }) {
   const assignedSnippets = snippets.filter((s) => appointment.snippetIds.includes(s.id))
+  const panelRef = useRef<HTMLDivElement>(null)
+  const [isExporting, setIsExporting] = useState(false)
+
+  async function handleExport() {
+    if (!panelRef.current || isExporting) return
+    setIsExporting(true)
+    try {
+      const { default: html2canvas } = await import('html2canvas')
+      const { jsPDF } = await import('jspdf')
+      const canvas = await html2canvas(panelRef.current, { scale: 2, backgroundColor: null })
+      const imgData = canvas.toDataURL('image/png')
+      const pdf = new jsPDF({ unit: 'pt', format: [canvas.width / 2, canvas.height / 2] })
+      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width / 2, canvas.height / 2)
+      const buffer = Array.from(new Uint8Array(pdf.output('arraybuffer') as ArrayBuffer))
+      await window.baseline.savePdf(buffer, `appointment-${appointment.date}.pdf`)
+    } finally {
+      setIsExporting(false)
+    }
+  }
 
   return (
-    <div className="absolute inset-0 flex flex-col" style={{ background: 'var(--color-surface)' }}>
+    <div ref={panelRef} className="absolute inset-0 flex flex-col" style={{ background: 'var(--color-surface)' }}>
       {/* Panel header */}
-      <div className="drag-region px-5 pt-10 pb-4 shrink-0">
-        <div className="no-drag flex items-start gap-3">
-          <button
-            onClick={onClose}
-            className="text-[--color-muted] hover:text-[--color-text] transition-colors mt-0.5 shrink-0"
-            title="Back"
-          >
-            ←
-          </button>
-          <div className="min-w-0">
-            <h2 className="text-xl font-bold leading-tight">{formatDate(appointment.date)}</h2>
-            {appointment.title && (
-              <p className="text-[--color-muted] text-sm mt-0.5">{appointment.title}</p>
-            )}
+      <div className="px-5 pt-5 pb-4 shrink-0">
+        <div className="no-drag flex items-start justify-between">
+          <div className="flex items-start gap-3">
+            <button
+              onClick={onClose}
+              className="text-[--color-muted] hover:text-[--color-text] transition-colors mt-0.5 shrink-0"
+              title="Back"
+            >
+              ←
+            </button>
+            <div className="min-w-0">
+              <h2 className="text-xl font-bold leading-tight">{formatDate(appointment.date)}</h2>
+              {appointment.title && (
+                <p className="text-[--color-muted] text-sm mt-0.5">{appointment.title}</p>
+              )}
+            </div>
           </div>
+          <button
+            onClick={handleExport}
+            disabled={isExporting}
+            title="Export as PDF"
+            className="text-[--color-muted] hover:text-[--color-text] transition-colors shrink-0 mt-0.5 disabled:opacity-40"
+          >
+            <svg width="15" height="15" viewBox="0 0 15 15" fill="currentColor">
+              <path d="M7.5 11L4 7.5h2.25V2h2.5v5.5H11L7.5 11z"/>
+              <path d="M2 12.5h11V14H2z"/>
+            </svg>
+          </button>
         </div>
       </div>
 
@@ -200,9 +234,20 @@ function AppointmentDetail({ appointment, snippets, onClose }: {
                 {s.label}
               </p>
               <p className="text-xs text-[--color-muted] mb-2">{s.capturedDate}</p>
-              <pre className="text-xs text-[--color-text] whitespace-pre-wrap font-mono leading-relaxed">
-                {s.text}
-              </pre>
+              {s.chartMeta ? (
+                <div className="mt-2">
+                  <WeekChart
+                    days={s.chartMeta.days}
+                    varA={s.chartMeta.varA as ChartVarKey}
+                    varB={s.chartMeta.varB as ChartVarKey}
+                    numDays={s.chartMeta.numDays}
+                  />
+                </div>
+              ) : (
+                <pre className="text-xs text-[--color-text] whitespace-pre-wrap font-mono leading-relaxed">
+                  {s.text}
+                </pre>
+              )}
               {s.comment && (
                 <p className="text-xs text-[--color-muted] italic mt-2 border-t border-[--color-border] pt-2">
                   {s.comment}
@@ -256,7 +301,7 @@ export default function Prepare() {
     <div className="flex flex-col h-full">
       {/* Header — hidden when detail panel is open (panel has its own header) */}
       {!selectedAppt && (
-        <div className="drag-region px-5 pt-10 pb-4 shrink-0">
+        <div className="px-5 pt-5 pb-4 shrink-0">
           <div className="no-drag flex items-center justify-between">
             <div>
               <h1 className="text-xl font-bold">Prepare</h1>

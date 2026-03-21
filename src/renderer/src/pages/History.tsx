@@ -11,8 +11,8 @@ export default function History() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="drag-region px-5 pt-10 pb-4">
-        <div className="no-drag">
+      <div className="px-5 pt-5 pb-4">
+        <div>
           <h1 className="text-xl font-bold">History</h1>
           <p className="text-[--color-muted] text-xs mt-0.5">Last 14 days</p>
         </div>

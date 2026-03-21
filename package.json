@@ -16,6 +16,8 @@
   },
   "dependencies": {
     "@electron-toolkit/tsconfig": "^2.0.0",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^4.2.1",
     "papaparse": "^5.4.1",
     "recharts": "^2.15.0"
   },
@@ -54,7 +56,10 @@
       "out/**/*"
     ],
     "extraResources": [
-      { "from": "resources/", "to": "resources/" }
+      {
+        "from": "resources/",
+        "to": "resources/"
+      }
     ]
   }
 }

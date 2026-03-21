@@ -191,14 +191,15 @@ export default function Analyze() {
             label: `${CHART_VARS[varA].label} vs ${CHART_VARS[varB].label}`,
             text: buildChartTable(chartDays, varA, varB, numDays),
             comment: comment || undefined,
+            chartMeta: { varA, varB, days: chartDays, numDays },
           })}
           onClose={() => setChartMenu(null)}
         />
       )}
 
       {/* Header */}
-      <div className="drag-region px-5 pt-10 pb-2">
-        <h1 className="text-xl font-bold no-drag">Analyze</h1>
+      <div className="px-5 pt-5 pb-2">
+        <h1 className="text-xl font-bold">Analyze</h1>
       </div>
 
       <div className="flex-1 overflow-y-auto px-5 flex flex-col gap-5 pb-6">

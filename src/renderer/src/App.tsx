@@ -37,8 +37,9 @@ export default function App() {
 
   return (
     <HashRouter>
-      <div className="flex flex-col h-full">
-        <div className="flex-1 overflow-y-auto">
+      <div className="flex h-full">
+        <Nav />
+        <div className="flex-1 overflow-y-auto min-w-0">
           <Routes>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<Dashboard />} />
@@ -52,7 +53,6 @@ export default function App() {
             <Route path="/settings" element={<Settings />} />
           </Routes>
         </div>
-        <Nav />
       </div>
     </HashRouter>
   )

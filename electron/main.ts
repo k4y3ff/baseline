@@ -954,6 +954,16 @@ function registerIpcHandlers(): void {
     if (!vaultPath) return
     writeAppointments(vaultPath, appointments)
   })
+
+  ipcMain.handle('save-pdf', async (_e, buffer: number[], defaultName: string) => {
+    const win = BrowserWindow.getFocusedWindow()
+    const { canceled, filePath } = await dialog.showSaveDialog(win!, {
+      defaultPath: defaultName,
+      filters: [{ name: 'PDF', extensions: ['pdf'] }]
+    })
+    if (canceled || !filePath) return
+    writeFileSync(filePath, Buffer.from(buffer))
+  })
 }
 
 // ─── Screenings ───────────────────────────────────────────────────────────────
@@ -1278,7 +1288,8 @@ function createWindow(): void {
     show: false,
     autoHideMenuBar: true,
     titleBarStyle: 'hiddenInset',
-    backgroundColor: '#0f0f0f',
+    trafficLightPosition: { x: 14, y: 14 },
+    backgroundColor: '#1c1c1e',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false

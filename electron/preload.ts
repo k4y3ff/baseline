@@ -127,7 +127,10 @@ const baseline = {
 
   // Appointments
   readAppointments: (): Promise<unknown[]> => ipcRenderer.invoke('read-appointments'),
-  writeAppointments: (appointments: unknown[]): Promise<void> => ipcRenderer.invoke('write-appointments', appointments)
+  writeAppointments: (appointments: unknown[]): Promise<void> => ipcRenderer.invoke('write-appointments', appointments),
+
+  // Export
+  savePdf: (buffer: number[], filename: string): Promise<void> => ipcRenderer.invoke('save-pdf', buffer, filename)
 }
 
 if (process.contextIsolated) {

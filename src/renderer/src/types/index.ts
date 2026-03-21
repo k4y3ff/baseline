@@ -84,6 +84,13 @@ export interface CheckIn {
   }
 }
 
+export interface ClinicianSnippetChartMeta {
+  varA: string
+  varB: string
+  days: DayData[]
+  numDays: number
+}
+
 export interface ClinicianSnippet {
   id: string
   savedAt: string      // ISO timestamp
@@ -92,6 +99,7 @@ export interface ClinicianSnippet {
   label: string
   text: string
   comment?: string
+  chartMeta?: ClinicianSnippetChartMeta
 }
 
 export interface Appointment {

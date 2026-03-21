@@ -43,8 +43,39 @@ const chatTokenCbs: Array<(token: string) => void> = []
 const chatDoneCbs: Array<() => void> = []
 const chatErrorCbs: Array<(err: string) => void> = []
 let mockChatHistory: ChatMessage[] = []
-let mockClinicianNotes: ClinicianSnippet[] = []
-let mockAppointments: Appointment[] = []
+let mockClinicianNotes: ClinicianSnippet[] = [
+  {
+    id: 'mock-snippet-1',
+    savedAt: new Date().toISOString(),
+    capturedDate: daysAgo(1),
+    source: 'analyze',
+    label: 'Sleep vs Readiness',
+    text: 'Sleep vs Readiness (7 days)\n\nDate        | Sleep | Readiness\n            | ----- | ---------',
+    chartMeta: {
+      varA: 'sleep_hours',
+      varB: 'readiness_score',
+      numDays: 7,
+      days: [
+        { date: daysAgo(6), label: 'Mon', mood: 2, energy: 2, sleep_hours: 6.1, sleep_score: 72, hrv_avg: 38, readiness_score: 68, activity_score: 71, steps: 7200, calories: null, weight: null, medication: null, spending: null, phq9_score: null, menstrual_flow: null },
+        { date: daysAgo(5), label: 'Tue', mood: 4, energy: 4, sleep_hours: 7.8, sleep_score: 85, hrv_avg: 52, readiness_score: 82, activity_score: 88, steps: 9500, calories: null, weight: null, medication: null, spending: null, phq9_score: null, menstrual_flow: null },
+        { date: daysAgo(4), label: 'Wed', mood: 2, energy: 2, sleep_hours: 5.4, sleep_score: 61, hrv_avg: 29, readiness_score: 55, activity_score: 60, steps: 4100, calories: null, weight: null, medication: null, spending: null, phq9_score: null, menstrual_flow: null },
+        { date: daysAgo(3), label: 'Thu', mood: 3, energy: 3, sleep_hours: 7.2, sleep_score: 78, hrv_avg: 45, readiness_score: 74, activity_score: 79, steps: 8300, calories: null, weight: null, medication: null, spending: null, phq9_score: null, menstrual_flow: null },
+        { date: daysAgo(2), label: 'Fri', mood: 5, energy: 5, sleep_hours: 8.1, sleep_score: 88, hrv_avg: 58, readiness_score: 87, activity_score: 90, steps: 10200, calories: null, weight: null, medication: null, spending: null, phq9_score: null, menstrual_flow: null },
+        { date: daysAgo(1), label: 'Sat', mood: 3, energy: 3, sleep_hours: 6.3, sleep_score: 70, hrv_avg: 41, readiness_score: 71, activity_score: 75, steps: 7800, calories: null, weight: null, medication: null, spending: null, phq9_score: null, menstrual_flow: null },
+        { date: today,     label: 'Sun', mood: null, energy: null, sleep_hours: 7.5, sleep_score: 82, hrv_avg: 50, readiness_score: 79, activity_score: 83, steps: 5100, calories: null, weight: null, medication: null, spending: null, phq9_score: null, menstrual_flow: null },
+      ],
+    },
+  },
+]
+let mockAppointments: Appointment[] = [
+  {
+    id: 'mock-appt-1',
+    date: daysAgo(0),
+    title: 'Dr. Smith',
+    createdAt: new Date().toISOString(),
+    snippetIds: ['mock-snippet-1'],
+  },
+]
 
 const mockYnabBudgets: YnabBudget[] = [
   { id: 'budget-1', name: 'My Budget' }
@@ -206,5 +237,10 @@ export function installDevMock(): void {
     // Appointments
     readAppointments: async () => [...mockAppointments],
     writeAppointments: async (appointments: Appointment[]) => { mockAppointments = [...appointments] },
+
+    // Export
+    savePdf: async (_buffer: number[], filename: string) => {
+      console.log(`[dev mock] savePdf called for "${filename}" (${_buffer.length} bytes) — no-op in browser preview`)
+    },
   }
 }

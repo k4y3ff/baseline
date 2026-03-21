@@ -69,7 +69,7 @@ export default function Screening() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="drag-region px-5 pt-10 pb-3">
+      <div className="px-5 pt-5 pb-3">
         <div className="no-drag flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
             <h1 className="text-xl font-bold">{def.id}</h1>

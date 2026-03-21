@@ -9,21 +9,46 @@ const links = [
 
 export default function Nav() {
   return (
-    <nav className="no-drag border-t border-[--color-border] bg-[--color-surface] flex">
-      {links.map(({ to, label, icon }) => (
+    <nav className="no-drag flex flex-col shrink-0 w-[52px] h-full bg-[--color-surface]" style={{ borderRight: '1px solid rgba(255,255,255,0.08)' }}>
+      {/* Drag region — clears macOS traffic lights */}
+      <div className="drag-region h-[42px] shrink-0" />
+
+      {/* Primary nav items */}
+      <div className="flex flex-col flex-1 gap-0.5 px-1.5">
+        {links.map(({ to, label, icon }) => (
+          <NavLink
+            key={to}
+            to={to}
+            title={label}
+            className={({ isActive }) =>
+              `flex items-center justify-center w-full h-10 rounded-lg text-[18px] leading-none transition-colors ${
+                isActive
+                  ? 'bg-white/10 text-white'
+                  : 'text-[--color-muted] hover:text-white hover:bg-white/[0.06]'
+              }`
+            }
+          >
+            {icon}
+          </NavLink>
+        ))}
+      </div>
+
+      {/* Settings pinned to bottom */}
+      <div className="px-1.5 pb-5">
         <NavLink
-          key={to}
-          to={to}
+          to="/settings"
+          title="Settings"
           className={({ isActive }) =>
-            `flex-1 flex flex-col items-center gap-0.5 py-3 text-xs transition-colors ${
-              isActive ? 'text-[--color-brand]' : 'text-[--color-muted] hover:text-[--color-text]'
+            `flex items-center justify-center w-full h-10 rounded-lg text-[18px] leading-none transition-colors ${
+              isActive
+                ? 'bg-white/10 text-white'
+                : 'text-[--color-muted] hover:text-white hover:bg-white/[0.06]'
             }`
           }
         >
-          <span className="text-lg leading-none">{icon}</span>
-          <span>{label}</span>
+          ⚙
         </NavLink>
-      ))}
+      </div>
     </nav>
   )
 }

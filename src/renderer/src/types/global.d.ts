@@ -35,6 +35,7 @@ declare global {
       writeClinicianNotes(notes: ClinicianSnippet[]): Promise<void>
       readAppointments(): Promise<Appointment[]>
       writeAppointments(appointments: Appointment[]): Promise<void>
+      savePdf(buffer: number[], filename: string): Promise<void>
     }
   }
 }

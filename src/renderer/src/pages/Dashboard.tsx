@@ -184,26 +184,16 @@ export default function Dashboard() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="drag-region px-5 pt-10 pb-3">
-        <div className="no-drag flex items-center justify-between">
+      <div className="px-5 pt-5 pb-3">
+        <div className="flex items-center justify-between">
           <AppLogo width={108} />
-          <div className="flex items-center gap-2">
-            {syncing ? (
-              <span className="text-[--color-muted] text-xs">Syncing…</span>
-            ) : (
-              <span className="text-[--color-muted] text-xs">
-                {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-              </span>
-            )}
-            <NavLink
-              to="/settings"
-              className={({ isActive }) =>
-                `text-[1.5rem] leading-none transition-colors ${isActive ? 'text-[--color-brand]' : 'text-[--color-muted] hover:text-[--color-text]'}`
-              }
-            >
-              ⚙
-            </NavLink>
-          </div>
+          {syncing ? (
+            <span className="text-[--color-muted] text-xs">Syncing…</span>
+          ) : (
+            <span className="text-[--color-muted] text-xs">
+              {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+            </span>
+          )}
         </div>
       </div>
 
