@@ -57,7 +57,7 @@ export default function ContextMenu({ x, y, onSave, onClose }: Props) {
             }}
             placeholder="Why are you saving this?"
             rows={3}
-            className="w-full text-sm border border-gray-200 rounded-md px-2 py-1.5 resize-none focus:outline-none focus:border-gray-400"
+            className="w-full text-sm text-black border border-gray-200 rounded-md px-2 py-1.5 resize-none focus:outline-none focus:border-gray-400"
           />
           <div className="flex gap-2 justify-end">
             <button

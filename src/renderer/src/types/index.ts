@@ -92,6 +92,14 @@ export interface ClinicianSnippet {
   comment?: string
 }
 
+export interface Appointment {
+  id: string
+  date: string         // YYYY-MM-DD
+  title?: string
+  createdAt: string    // ISO timestamp
+  snippetIds: string[]
+}
+
 export interface DayData {
   date: string
   label: string // "Mon", "Tue" etc.

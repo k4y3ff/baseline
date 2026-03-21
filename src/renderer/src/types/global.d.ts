@@ -1,4 +1,4 @@
-import type { Config, OuraRow, ScreeningResult, ChatMessage, YnabBudget, SpendingRow, ClinicianSnippet } from './index'
+import type { Config, OuraRow, ScreeningResult, ChatMessage, YnabBudget, SpendingRow, ClinicianSnippet, Appointment } from './index'
 
 declare global {
   interface Window {
@@ -33,6 +33,8 @@ declare global {
       disconnectYnab(): Promise<void>
       readClinicianNotes(): Promise<ClinicianSnippet[]>
       writeClinicianNotes(notes: ClinicianSnippet[]): Promise<void>
+      readAppointments(): Promise<Appointment[]>
+      writeAppointments(appointments: Appointment[]): Promise<void>
     }
   }
 }

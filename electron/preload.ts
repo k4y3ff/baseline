@@ -121,7 +121,11 @@ const baseline = {
 
   // Clinician notes
   readClinicianNotes: (): Promise<unknown[]> => ipcRenderer.invoke('read-clinician-notes'),
-  writeClinicianNotes: (notes: unknown[]): Promise<void> => ipcRenderer.invoke('write-clinician-notes', notes)
+  writeClinicianNotes: (notes: unknown[]): Promise<void> => ipcRenderer.invoke('write-clinician-notes', notes),
+
+  // Appointments
+  readAppointments: (): Promise<unknown[]> => ipcRenderer.invoke('read-appointments'),
+  writeAppointments: (appointments: unknown[]): Promise<void> => ipcRenderer.invoke('write-appointments', appointments)
 }
 
 if (process.contextIsolated) {

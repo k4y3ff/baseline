@@ -634,7 +634,8 @@ function registerIpcHandlers(): void {
     'list-screenings', 'save-screening',
     'start-chat', 'read-chat-history', 'write-chat-history',
     'connect-ynab', 'sync-ynab', 'read-ynab-csv', 'disconnect-ynab',
-    'read-clinician-notes', 'write-clinician-notes'
+    'read-clinician-notes', 'write-clinician-notes',
+    'read-appointments', 'write-appointments'
   ]
   for (const ch of channels) ipcMain.removeHandler(ch)
 
@@ -936,6 +937,19 @@ function registerIpcHandlers(): void {
     if (!vaultPath) return
     writeClinicianNotes(vaultPath, notes)
   })
+
+  // Appointments
+  ipcMain.handle('read-appointments', () => {
+    const vaultPath = getVaultPath()
+    if (!vaultPath) return []
+    return readAppointments(vaultPath)
+  })
+
+  ipcMain.handle('write-appointments', (_e, appointments: Appointment[]) => {
+    const vaultPath = getVaultPath()
+    if (!vaultPath) return
+    writeAppointments(vaultPath, appointments)
+  })
 }
 
 // ─── Screenings ───────────────────────────────────────────────────────────────
@@ -1131,6 +1145,31 @@ function writeClinicianNotes(vaultPath: string, notes: ClinicianSnippet[]): void
   const dir = join(vaultPath, '.baseline')
   mkdirSync(dir, { recursive: true })
   writeFileSync(getClinicianNotesPath(vaultPath), JSON.stringify(notes, null, 2), 'utf-8')
+}
+
+// ─── Appointments ─────────────────────────────────────────────────────────────
+interface Appointment {
+  id: string
+  date: string
+  title?: string
+  createdAt: string
+  snippetIds: string[]
+}
+
+function getAppointmentsPath(vaultPath: string): string {
+  return join(vaultPath, '.baseline', 'appointments.json')
+}
+
+function readAppointments(vaultPath: string): Appointment[] {
+  const p = getAppointmentsPath(vaultPath)
+  if (!existsSync(p)) return []
+  try { return JSON.parse(readFileSync(p, 'utf-8')) } catch { return [] }
+}
+
+function writeAppointments(vaultPath: string, appointments: Appointment[]): void {
+  const dir = join(vaultPath, '.baseline')
+  mkdirSync(dir, { recursive: true })
+  writeFileSync(getAppointmentsPath(vaultPath), JSON.stringify(appointments, null, 2), 'utf-8')
 }
 
 function getChatHistoryPath(vaultPath: string, mode: 'daily' | 'persistent'): string {
