@@ -42,10 +42,11 @@ export function formatCheckIn(checkIn: CheckIn): string {
     if (n.fat      != null) lines.push(`**Fat**: ${n.fat}`)
   }
 
-  if (checkIn.weight != null) {
+  if (checkIn.weight != null || checkIn.medication != null) {
     lines.push('')
     lines.push('## Body')
-    lines.push(`**Weight**: ${checkIn.weight}`)
+    if (checkIn.weight != null) lines.push(`**Weight**: ${checkIn.weight}`)
+    if (checkIn.medication != null) lines.push(`**Medication**: ${checkIn.medication ? 'yes' : 'no'}`)
   }
 
   if (checkIn.oura) {
@@ -126,5 +127,8 @@ export function parseCheckIn(date: string, markdown: string): CheckIn {
   const weightMatch = markdown.match(/\*\*Weight\*\*:\s*([\d.]+)/)
   const weight = weightMatch ? parseFloat(weightMatch[1]) : undefined
 
-  return { date, mood, energy, notes, nutrition: hasNutrition ? nutrition : undefined, weight, oura }
+  const medicationMatch = markdown.match(/\*\*Medication\*\*:\s*(yes|no)/)
+  const medication = medicationMatch ? medicationMatch[1] === 'yes' : undefined
+
+  return { date, mood, energy, notes, nutrition: hasNutrition ? nutrition : undefined, weight, medication, oura }
 }

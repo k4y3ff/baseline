@@ -224,6 +224,28 @@ export default function Settings() {
               </button>
             </div>
 
+            {/* Medication */}
+            <div className="flex items-center justify-between gap-4 pt-3 border-t border-[--color-border]">
+              <div>
+                <p className="text-sm font-medium">Medication tracking</p>
+                <p className="text-xs text-[--color-muted] mt-0.5">
+                  Check off whether you took your medications
+                </p>
+              </div>
+              <button
+                role="switch"
+                aria-checked={config.medicationEnabled ?? false}
+                onClick={() => save({ medicationEnabled: !config.medicationEnabled })}
+                className={`relative shrink-0 w-11 h-6 rounded-full transition-colors ${
+                  config.medicationEnabled ? 'bg-[--color-brand]' : 'bg-[--color-border]'
+                }`}
+              >
+                <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
+                  config.medicationEnabled ? 'translate-x-5' : 'translate-x-0'
+                }`} />
+              </button>
+            </div>
+
           </div>
         </section>
 

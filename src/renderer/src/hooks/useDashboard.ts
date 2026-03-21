@@ -81,6 +81,7 @@ export function useDashboard(numDays = 14) {
         steps: num(oura?.steps),
         calories: ci?.nutrition?.calories ?? null,
         weight: ci?.weight ?? null,
+        medication: ci?.medication != null ? (ci.medication ? 1 : 0) : null,
         spending: spendingMap.get(date) ?? null,
         phq9_score: null // joined in Analyze from screening results
       }

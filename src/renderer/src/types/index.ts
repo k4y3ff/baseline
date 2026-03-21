@@ -12,6 +12,7 @@ export interface Config {
   chatHistory?: 'session' | 'daily' | 'persistent'
   nutritionEnabled?: boolean
   weightEnabled?: boolean
+  medicationEnabled?: boolean
   ynabEnabled?: boolean
   ynabPat?: string
   ynabBudgetId?: string
@@ -67,6 +68,7 @@ export interface CheckIn {
     fat?: number
   }
   weight?: number
+  medication?: boolean
   // Oura data embedded in the file (parsed back out)
   oura?: {
     sleep_hours?: number
@@ -88,6 +90,7 @@ export interface DayData {
   steps: number | null
   calories: number | null
   weight: number | null
+  medication: number | null  // 1 = took, 0 = didn't take, null = not logged
   spending: number | null
   phq9_score: number | null
 }

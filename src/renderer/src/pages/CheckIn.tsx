@@ -36,6 +36,9 @@ export default function CheckIn() {
   // Weight state (only used when weightEnabled)
   const [weight, setWeight] = useState('')
 
+  // Medication state (only used when medicationEnabled)
+  const [medication, setMedication] = useState(false)
+
   // Load today's oura data and any existing check-in
   useEffect(() => {
     const load = async () => {
@@ -52,6 +55,7 @@ export default function CheckIn() {
           if (ci.nutrition.fat      != null) setFat(String(ci.nutrition.fat))
         }
         if (ci.weight != null) setWeight(String(ci.weight))
+        if (ci.medication != null) setMedication(ci.medication)
         setExisting(true)
       }
     }
@@ -85,8 +89,9 @@ export default function CheckIn() {
     } : undefined
 
     const weightVal = config.weightEnabled && weight !== '' ? parseFloat(weight) : undefined
+    const medicationVal = config.medicationEnabled ? medication : undefined
 
-    const md = formatCheckIn({ date, mood, energy, notes, nutrition, weight: weightVal, oura: ouraData })
+    const md = formatCheckIn({ date, mood, energy, notes, nutrition, weight: weightVal, medication: medicationVal, oura: ouraData })
     await window.baseline.writeCheckIn(date, md)
     setSaving(false)
     navigate('/dashboard')
@@ -188,6 +193,35 @@ export default function CheckIn() {
               <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-[--color-muted] pointer-events-none">lbs</span>
             </div>
           </div>
+        )}
+
+        {/* Medication — only when enabled in Settings */}
+        {config.medicationEnabled && (
+          <label className="flex items-center gap-3 cursor-pointer">
+            <div className="relative">
+              <input
+                type="checkbox"
+                checked={medication}
+                onChange={(e) => setMedication(e.target.checked)}
+                className="sr-only"
+              />
+              <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-colors ${
+                medication
+                  ? 'bg-[--color-brand] border-[--color-brand]'
+                  : 'bg-[--color-surface-2] border-[--color-border]'
+              }`}>
+                {medication && (
+                  <svg className="w-3.5 h-3.5 text-white" viewBox="0 0 12 12" fill="none">
+                    <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                )}
+              </div>
+            </div>
+            <div>
+              <p className="text-sm font-medium">Took medications</p>
+              <p className="text-xs text-[--color-muted] mt-0.5">Mark if you took your medications today</p>
+            </div>
+          </label>
         )}
 
         {/* Nutrition — only when enabled in Settings */}

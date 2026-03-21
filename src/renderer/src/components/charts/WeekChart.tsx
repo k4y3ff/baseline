@@ -17,7 +17,7 @@ export interface ChartVarDef {
   unit: string
   domain: [number, number | 'auto']
   color: string
-  requires?: 'oura' | 'ynab' | 'weight' | 'nutrition' | 'phq9'
+  requires?: 'oura' | 'ynab' | 'weight' | 'nutrition' | 'phq9' | 'medication'
 }
 
 export const CHART_VARS: Record<string, ChartVarDef> = {
@@ -25,6 +25,7 @@ export const CHART_VARS: Record<string, ChartVarDef> = {
   calories:        { label: 'Calories',     unit: 'kcal', domain: [0, 'auto'], color: '#f472b6', requires: 'nutrition' },
   energy:          { label: 'Energy',       unit: '/5',   domain: [0, 5],      color: '#fb923c'                        },
   hrv_avg:         { label: 'HRV Balance',  unit: '',     domain: [0, 100],    color: '#34d399', requires: 'oura'      },
+  medication:      { label: 'Medication',   unit: '',     domain: [0, 1],      color: '#e879f9', requires: 'medication' },
   mood:            { label: 'Mood',         unit: '/5',   domain: [0, 5],      color: '#c084fc'                        },
   phq9_score:      { label: 'PHQ-9',        unit: '/27',  domain: [0, 27],     color: '#2dd4bf', requires: 'phq9'      },
   readiness_score: { label: 'Readiness',    unit: '',     domain: [0, 100],    color: '#fbbf24', requires: 'oura'      },

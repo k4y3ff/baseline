@@ -40,6 +40,7 @@ interface Config {
   chatHistory?: 'session' | 'daily' | 'persistent'
   nutritionEnabled?: boolean
   weightEnabled?: boolean
+  medicationEnabled?: boolean
   ynabEnabled?: boolean
   ynabPat?: string
   ynabBudgetId?: string

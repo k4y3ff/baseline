@@ -16,6 +16,7 @@ function enabledVarKeysFor(config: Config): ChartVarKey[] {
     if (req === 'weight')    return Boolean(config.weightEnabled)
     if (req === 'nutrition') return Boolean(config.nutritionEnabled)
     if (req === 'phq9')      return Boolean(config.screeningsEnabled?.includes('PHQ-9'))
+    if (req === 'medication') return Boolean(config.medicationEnabled)
     return true
   }) as ChartVarKey[]
 }
