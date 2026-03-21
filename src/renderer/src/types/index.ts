@@ -111,6 +111,14 @@ export interface Appointment {
   snippetIds: string[]
 }
 
+export interface VaultMeta {
+  encryptionEnabled: boolean
+  passwordEnabled: boolean
+  touchIdEnabled: boolean
+  passwordSalt?: string
+  wrappedKey?: string
+}
+
 export interface DayData {
   date: string
   label: string // "Mon", "Tue" etc.

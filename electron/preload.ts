@@ -14,6 +14,14 @@ export interface Config {
   reminderTime?: string
 }
 
+export interface VaultMeta {
+  encryptionEnabled: boolean
+  passwordEnabled: boolean
+  touchIdEnabled: boolean
+  passwordSalt?: string
+  wrappedKey?: string
+}
+
 export interface OuraRow {
   date: string
   sleep_score: string
@@ -130,7 +138,25 @@ const baseline = {
   writeAppointments: (appointments: unknown[]): Promise<void> => ipcRenderer.invoke('write-appointments', appointments),
 
   // Export
-  savePdf: (buffer: number[], filename: string): Promise<void> => ipcRenderer.invoke('save-pdf', buffer, filename)
+  savePdf: (buffer: number[], filename: string): Promise<void> => ipcRenderer.invoke('save-pdf', buffer, filename),
+
+  // Encryption
+  readVaultMeta: (): Promise<VaultMeta> => ipcRenderer.invoke('get-vault-meta'),
+  isVaultUnlocked: (): Promise<boolean> => ipcRenderer.invoke('is-vault-unlocked'),
+  canUseTouchId: (): Promise<boolean> => ipcRenderer.invoke('can-use-touchid'),
+  unlockWithPassword: (password: string): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke('unlock-with-password', password),
+  unlockWithTouchId: (): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke('unlock-with-touchid'),
+  enableEncryption: (): Promise<void> => ipcRenderer.invoke('enable-encryption'),
+  disableEncryption: (): Promise<void> => ipcRenderer.invoke('disable-encryption'),
+  setEncryptionPassword: (password: string): Promise<void> =>
+    ipcRenderer.invoke('set-encryption-password', password),
+  removeEncryptionPassword: (currentPassword: string): Promise<void> =>
+    ipcRenderer.invoke('remove-encryption-password', currentPassword),
+  enableTouchIdBackup: (): Promise<void> => ipcRenderer.invoke('enable-touchid-backup'),
+  disableTouchIdBackup: (): Promise<void> => ipcRenderer.invoke('disable-touchid-backup'),
+  exportVaultPlaintext: (): Promise<void> => ipcRenderer.invoke('export-vault-plaintext')
 }
 
 if (process.contextIsolated) {

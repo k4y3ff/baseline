@@ -31,6 +31,15 @@ function formatAllSnippets(snippets: ClinicianSnippet[]): string {
   }).join('\n\n')
 }
 
+function rangeLabel(numDays: number): string {
+  if (numDays <= 7)   return '7 days'
+  if (numDays <= 14)  return '14 days'
+  if (numDays <= 30)  return '1 month'
+  if (numDays <= 90)  return '3 months'
+  if (numDays <= 180) return '6 months'
+  return '1 year'
+}
+
 const APPOINTMENT_TYPES = ['Primary Care', 'Psychiatric', 'Therapy', 'Other...']
 
 // ─── PDF View (rendered off-screen for export) ────────────────────────────────
@@ -420,7 +429,9 @@ function AppointmentDetail({ appointment, snippets, onClose, onUnassignSnippet }
                   <p className="text-xs font-semibold text-[--color-muted] uppercase tracking-wider">
                     {s.label}
                   </p>
-                  <p className="text-xs text-[--color-muted] mt-0.5">{s.capturedDate}</p>
+                  <p className="text-xs text-[--color-muted] mt-0.5">
+                    {s.capturedDate}{s.chartMeta ? ` · ${rangeLabel(s.chartMeta.numDays)}` : ''}
+                  </p>
                 </div>
                 <button
                   onClick={() => onUnassignSnippet(s.id)}
@@ -621,7 +632,12 @@ export default function Prepare() {
                           className="bg-[--color-surface-2] rounded-xl border border-[--color-border] p-3 cursor-grab active:cursor-grabbing"
                         >
                           <div className="flex items-start justify-between gap-2 mb-1.5">
-                            <span className="text-xs font-medium text-[--color-muted] truncate">{snippet.label}</span>
+                            <div className="flex flex-col min-w-0">
+                              <span className="text-xs font-medium text-[--color-muted] truncate">{snippet.label}</span>
+                              {snippet.chartMeta && (
+                                <span className="text-xs text-[--color-muted] opacity-60">{rangeLabel(snippet.chartMeta.numDays)}</span>
+                              )}
+                            </div>
                             <button
                               onClick={() => deleteSnippet(snippet.id)}
                               className="text-[--color-muted] hover:text-red-400 transition-colors text-xs shrink-0"

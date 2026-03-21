@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import Setup from './pages/Setup'
+import Unlock from './pages/Unlock'
 import Dashboard from './pages/Dashboard'
 import Analyze from './pages/Analyze'
 import CheckIn from './pages/CheckIn'
@@ -9,15 +10,31 @@ import Prepare from './pages/Prepare'
 import Screening from './pages/Screening'
 import Settings from './pages/Settings'
 import Nav from './components/ui/Nav'
+import type { VaultMeta } from './types'
 
 export default function App() {
   const [vaultPath, setVaultPath] = useState<string | null | undefined>(undefined)
+  const [vaultMeta, setVaultMeta] = useState<VaultMeta | null>(null)
+  const [unlocked, setUnlocked] = useState(false)
 
   useEffect(() => {
-    window.baseline.getVaultPath().then(setVaultPath)
+    async function init() {
+      const path = await window.baseline.getVaultPath()
+      setVaultPath(path)
+      if (path) {
+        const meta = await window.baseline.readVaultMeta()
+        setVaultMeta(meta)
+        if (!meta.encryptionEnabled) setUnlocked(true)
+        else {
+          const already = await window.baseline.isVaultUnlocked()
+          setUnlocked(already)
+        }
+      }
+    }
+    init()
   }, [])
 
-  // Still loading vault path
+  // Still loading
   if (vaultPath === undefined) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -31,6 +48,16 @@ export default function App() {
     return (
       <Setup
         onComplete={(path) => setVaultPath(path)}
+      />
+    )
+  }
+
+  // Locked vault — needs unlock
+  if (vaultMeta?.encryptionEnabled && !unlocked) {
+    return (
+      <Unlock
+        meta={vaultMeta}
+        onUnlocked={() => setUnlocked(true)}
       />
     )
   }

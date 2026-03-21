@@ -3,7 +3,7 @@ import PageHeader from '../components/ui/PageHeader'
 import { useConfig } from '../hooks/useConfig'
 import { ALL_SCREENINGS, FREQUENCY_LABELS } from '../lib/screenings'
 import type { ScreeningFrequency } from '../lib/screenings'
-import type { Config, YnabBudget } from '../types'
+import type { Config, YnabBudget, VaultMeta } from '../types'
 
 export default function Settings() {
   const { config, loading, save, reload } = useConfig()
@@ -128,6 +128,97 @@ export default function Settings() {
 
   const isYnabConnected = Boolean(config.ynabPat)
 
+  // ── Security state ──
+  const [vaultMeta, setVaultMeta] = useState<VaultMeta | null>(null)
+  const [touchIdAvailable, setTouchIdAvailable] = useState(false)
+  const [securityBusy, setSecurityBusy] = useState(false)
+  const [securityError, setSecurityError] = useState<string | null>(null)
+  const [securitySuccess, setSecuritySuccess] = useState<string | null>(null)
+  // Password setup form
+  const [showPasswordSetup, setShowPasswordSetup] = useState(false)
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  // Password removal form
+  const [showPasswordRemove, setShowPasswordRemove] = useState(false)
+  const [removePassword, setRemovePassword] = useState('')
+
+  useEffect(() => {
+    Promise.all([
+      window.baseline.readVaultMeta(),
+      window.baseline.canUseTouchId()
+    ]).then(([meta, canTouch]) => {
+      setVaultMeta(meta)
+      setTouchIdAvailable(canTouch)
+    })
+  }, [])
+
+  const reloadVaultMeta = async () => {
+    const meta = await window.baseline.readVaultMeta()
+    setVaultMeta(meta)
+  }
+
+  const withSecurity = async (label: string, fn: () => Promise<void>) => {
+    setSecurityBusy(true)
+    setSecurityError(null)
+    setSecuritySuccess(null)
+    try {
+      await fn()
+      setSecuritySuccess(label)
+      await reloadVaultMeta()
+    } catch (err) {
+      setSecurityError(err instanceof Error ? err.message : 'Something went wrong')
+    } finally {
+      setSecurityBusy(false)
+    }
+  }
+
+  const toggleEncryption = async () => {
+    if (!vaultMeta) return
+    if (!vaultMeta.encryptionEnabled) {
+      await withSecurity('Vault encrypted', () => window.baseline.enableEncryption())
+    } else {
+      await withSecurity('Encryption disabled', () => window.baseline.disableEncryption())
+    }
+  }
+
+  const submitSetPassword = async () => {
+    if (newPassword !== confirmPassword) {
+      setSecurityError('Passwords do not match')
+      return
+    }
+    if (newPassword.length < 8) {
+      setSecurityError('Password must be at least 8 characters')
+      return
+    }
+    await withSecurity('Password set', async () => {
+      await window.baseline.setEncryptionPassword(newPassword)
+      setShowPasswordSetup(false)
+      setNewPassword('')
+      setConfirmPassword('')
+    })
+  }
+
+  const submitRemovePassword = async () => {
+    await withSecurity('Password removed', async () => {
+      await window.baseline.removeEncryptionPassword(removePassword)
+      setShowPasswordRemove(false)
+      setRemovePassword('')
+    })
+  }
+
+  const toggleTouchIdBackup = async () => {
+    if (!vaultMeta) return
+    if (!vaultMeta.touchIdEnabled) {
+      await withSecurity('Touch ID backup enabled', () => window.baseline.enableTouchIdBackup())
+    } else {
+      await withSecurity('Touch ID backup disabled', () => window.baseline.disableTouchIdBackup())
+    }
+  }
+
+  const exportPlaintext = async () => {
+    await withSecurity('Export complete', () => window.baseline.exportVaultPlaintext())
+  }
+
   const connectYnab = async () => {
     const pat = ynabPat.trim()
     if (!pat) return
@@ -196,7 +287,7 @@ export default function Settings() {
                 aria-checked={config.nutritionEnabled ?? false}
                 onClick={() => save({ nutritionEnabled: !config.nutritionEnabled })}
                 className={`relative shrink-0 w-11 h-6 rounded-full transition-colors ${
-                  config.nutritionEnabled ? 'bg-[--color-brand]' : 'bg-[--color-border]'
+                  config.nutritionEnabled ? 'bg-[--color-brand]' : 'bg-white/25'
                 }`}
               >
                 <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
@@ -218,7 +309,7 @@ export default function Settings() {
                 aria-checked={config.weightEnabled ?? false}
                 onClick={() => save({ weightEnabled: !config.weightEnabled })}
                 className={`relative shrink-0 w-11 h-6 rounded-full transition-colors ${
-                  config.weightEnabled ? 'bg-[--color-brand]' : 'bg-[--color-border]'
+                  config.weightEnabled ? 'bg-[--color-brand]' : 'bg-white/25'
                 }`}
               >
                 <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
@@ -240,7 +331,7 @@ export default function Settings() {
                 aria-checked={config.medicationEnabled ?? false}
                 onClick={() => save({ medicationEnabled: !config.medicationEnabled })}
                 className={`relative shrink-0 w-11 h-6 rounded-full transition-colors ${
-                  config.medicationEnabled ? 'bg-[--color-brand]' : 'bg-[--color-border]'
+                  config.medicationEnabled ? 'bg-[--color-brand]' : 'bg-white/25'
                 }`}
               >
                 <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
@@ -262,7 +353,7 @@ export default function Settings() {
                 aria-checked={config.menstrualEnabled ?? false}
                 onClick={() => save({ menstrualEnabled: !config.menstrualEnabled })}
                 className={`relative shrink-0 w-11 h-6 rounded-full transition-colors ${
-                  config.menstrualEnabled ? 'bg-[--color-brand]' : 'bg-[--color-border]'
+                  config.menstrualEnabled ? 'bg-[--color-brand]' : 'bg-white/25'
                 }`}
               >
                 <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
@@ -293,7 +384,7 @@ export default function Settings() {
                 aria-checked={config.remindersEnabled ?? false}
                 onClick={() => save({ remindersEnabled: !config.remindersEnabled })}
                 className={`relative shrink-0 w-11 h-6 rounded-full transition-colors ${
-                  config.remindersEnabled ? 'bg-[--color-brand]' : 'bg-[--color-border]'
+                  config.remindersEnabled ? 'bg-[--color-brand]' : 'bg-white/25'
                 }`}
               >
                 <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
@@ -406,7 +497,7 @@ export default function Settings() {
                 disabled={!config.ollamaSummariesEnabled && !ollamaVerified}
                 onClick={() => toggleSummaries(!config.ollamaSummariesEnabled)}
                 className={`relative shrink-0 w-11 h-6 rounded-full transition-colors ${
-                  config.ollamaSummariesEnabled ? 'bg-[--color-brand]' : 'bg-[--color-border]'
+                  config.ollamaSummariesEnabled ? 'bg-[--color-brand]' : 'bg-white/25'
                 } disabled:opacity-40`}
               >
                 <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
@@ -428,7 +519,7 @@ export default function Settings() {
                   disabled={!config.chatEnabled && !ollamaVerified}
                   onClick={() => save({ chatEnabled: !config.chatEnabled })}
                   className={`relative shrink-0 w-11 h-6 rounded-full transition-colors ${
-                    config.chatEnabled ? 'bg-[--color-brand]' : 'bg-[--color-border]'
+                    config.chatEnabled ? 'bg-[--color-brand]' : 'bg-white/25'
                   } disabled:opacity-40`}
                 >
                   <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
@@ -468,7 +559,7 @@ export default function Settings() {
                 disabled={!config.warningsEnabled && !ollamaVerified}
                 onClick={() => save({ warningsEnabled: !config.warningsEnabled })}
                 className={`relative shrink-0 w-11 h-6 rounded-full transition-colors ${
-                  config.warningsEnabled ? 'bg-[--color-brand]' : 'bg-[--color-border]'
+                  config.warningsEnabled ? 'bg-[--color-brand]' : 'bg-white/25'
                 } disabled:opacity-40`}
               >
                 <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
@@ -718,6 +809,199 @@ export default function Settings() {
               )}
             </div>
           )}
+        </section>
+
+        {/* Security */}
+        <section className="flex flex-col gap-3">
+          <h2 className="text-xs font-semibold text-[--color-muted] uppercase tracking-wider">
+            Security
+          </h2>
+          <div className="bg-[--color-surface-2] rounded-xl border border-[--color-border] p-4 flex flex-col gap-4">
+
+            {/* Encrypt vault toggle */}
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium">Encrypt vault</p>
+                <p className="text-xs text-[--color-muted] mt-0.5">
+                  AES-256-GCM encryption, key stored in macOS Keychain
+                </p>
+              </div>
+              <button
+                role="switch"
+                aria-checked={vaultMeta?.encryptionEnabled ?? false}
+                onClick={toggleEncryption}
+                disabled={securityBusy || vaultMeta === null}
+                className={`relative shrink-0 w-11 h-6 rounded-full transition-colors disabled:opacity-40 ${
+                  vaultMeta?.encryptionEnabled ? 'bg-[--color-brand]' : 'bg-white/25'
+                }`}
+              >
+                <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
+                  vaultMeta?.encryptionEnabled ? 'translate-x-5' : 'translate-x-0'
+                }`} />
+              </button>
+            </div>
+
+            {/* Password — only visible when encrypted */}
+            {vaultMeta?.encryptionEnabled && (
+              <div className="flex flex-col gap-3 pt-3 border-t border-[--color-border]">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-medium">Require password</p>
+                    <p className="text-xs text-[--color-muted] mt-0.5">
+                      {vaultMeta.passwordEnabled
+                        ? 'A password is required to unlock the vault'
+                        : 'Vault unlocks automatically via macOS Keychain'}
+                    </p>
+                  </div>
+                  <button
+                    role="switch"
+                    aria-checked={vaultMeta.passwordEnabled}
+                    onClick={() => {
+                      setSecurityError(null)
+                      setSecuritySuccess(null)
+                      if (!vaultMeta.passwordEnabled) {
+                        setShowPasswordSetup(true)
+                        setShowPasswordRemove(false)
+                      } else {
+                        setShowPasswordRemove(true)
+                        setShowPasswordSetup(false)
+                      }
+                    }}
+                    disabled={securityBusy}
+                    className={`relative shrink-0 w-11 h-6 rounded-full transition-colors disabled:opacity-40 ${
+                      vaultMeta.passwordEnabled ? 'bg-[--color-brand]' : 'bg-white/25'
+                    }`}
+                  >
+                    <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
+                      vaultMeta.passwordEnabled ? 'translate-x-5' : 'translate-x-0'
+                    }`} />
+                  </button>
+                </div>
+
+                {/* Set password form */}
+                {showPasswordSetup && (
+                  <div className="flex flex-col gap-2 p-3 bg-[--color-surface] rounded-lg border border-[--color-border]">
+                    <p className="text-xs text-[--color-muted]">
+                      If you forget this password without Touch ID backup enabled, your data will be permanently unrecoverable.
+                    </p>
+                    <input
+                      type="password"
+                      placeholder="New password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      className="px-3 py-2 rounded-lg bg-[#111] border border-[--color-border] text-sm outline-none focus:border-[--color-brand] transition-colors"
+                    />
+                    <input
+                      type="password"
+                      placeholder="Confirm password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') submitSetPassword() }}
+                      className="px-3 py-2 rounded-lg bg-[#111] border border-[--color-border] text-sm outline-none focus:border-[--color-brand] transition-colors"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={submitSetPassword}
+                        disabled={securityBusy || !newPassword || !confirmPassword}
+                        className="flex-1 py-2 rounded-lg bg-[--color-brand] text-white text-sm font-medium disabled:opacity-40 hover:opacity-90 transition-opacity"
+                      >
+                        {securityBusy ? 'Setting…' : 'Set password'}
+                      </button>
+                      <button
+                        onClick={() => { setShowPasswordSetup(false); setNewPassword(''); setConfirmPassword('') }}
+                        className="px-3 py-2 rounded-lg border border-[--color-border] text-sm hover:bg-white/5 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Remove password form */}
+                {showPasswordRemove && (
+                  <div className="flex flex-col gap-2 p-3 bg-[--color-surface] rounded-lg border border-[--color-border]">
+                    <p className="text-xs text-[--color-muted]">Enter your current password to remove it.</p>
+                    <input
+                      type="password"
+                      placeholder="Current password"
+                      value={removePassword}
+                      onChange={(e) => setRemovePassword(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') submitRemovePassword() }}
+                      className="px-3 py-2 rounded-lg bg-[#111] border border-[--color-border] text-sm outline-none focus:border-[--color-brand] transition-colors"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={submitRemovePassword}
+                        disabled={securityBusy || !removePassword}
+                        className="flex-1 py-2 rounded-lg bg-red-600 text-white text-sm font-medium disabled:opacity-40 hover:opacity-90 transition-opacity"
+                      >
+                        {securityBusy ? 'Removing…' : 'Remove password'}
+                      </button>
+                      <button
+                        onClick={() => { setShowPasswordRemove(false); setRemovePassword('') }}
+                        className="px-3 py-2 rounded-lg border border-[--color-border] text-sm hover:bg-white/5 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Touch ID — only visible when encrypted and password is set */}
+            {vaultMeta?.encryptionEnabled && vaultMeta.passwordEnabled && touchIdAvailable && (
+              <div className="flex items-center justify-between gap-4 pt-3 border-t border-[--color-border]">
+                <div>
+                  <p className="text-sm font-medium">Touch ID backup</p>
+                  <p className="text-xs text-[--color-muted] mt-0.5">
+                    {vaultMeta.touchIdEnabled
+                      ? 'Can unlock with fingerprint if password is forgotten'
+                      : 'Enable to recover access if you forget your password'}
+                  </p>
+                </div>
+                <button
+                  role="switch"
+                  aria-checked={vaultMeta.touchIdEnabled}
+                  onClick={toggleTouchIdBackup}
+                  disabled={securityBusy}
+                  className={`relative shrink-0 w-11 h-6 rounded-full transition-colors disabled:opacity-40 ${
+                    vaultMeta.touchIdEnabled ? 'bg-[--color-brand]' : 'bg-white/25'
+                  }`}
+                >
+                  <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
+                    vaultMeta.touchIdEnabled ? 'translate-x-5' : 'translate-x-0'
+                  }`} />
+                </button>
+              </div>
+            )}
+
+            {/* Password-only warning (no TouchID backup) */}
+            {vaultMeta?.encryptionEnabled && vaultMeta.passwordEnabled && !vaultMeta.touchIdEnabled && touchIdAvailable && (
+              <p className="text-xs text-amber-400/80 pt-1">
+                No Touch ID backup — if you forget your password, your data cannot be recovered.
+              </p>
+            )}
+
+            {/* Export */}
+            <div className="flex items-center justify-between gap-4 pt-3 border-t border-[--color-border]">
+              <div>
+                <p className="text-sm font-medium">Export vault as plaintext</p>
+                <p className="text-xs text-[--color-muted] mt-0.5">Download all your data as readable files in a ZIP</p>
+              </div>
+              <button
+                onClick={exportPlaintext}
+                disabled={securityBusy}
+                className="shrink-0 px-3 py-1.5 rounded-lg border border-[--color-border] text-sm hover:bg-white/5 disabled:opacity-40 transition-colors"
+              >
+                {securityBusy ? 'Exporting…' : 'Export'}
+              </button>
+            </div>
+
+            {/* Feedback */}
+            {securityError && <p className="text-red-400 text-xs">{securityError}</p>}
+            {securitySuccess && !securityError && <p className="text-green-400 text-xs">{securitySuccess}</p>}
+          </div>
         </section>
 
         {/* About */}

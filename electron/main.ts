@@ -1,10 +1,13 @@
-import { app, BrowserWindow, ipcMain, dialog, shell, Tray, nativeImage, Notification } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, shell, Tray, nativeImage, Notification, safeStorage, systemPreferences } from 'electron'
 import { join } from 'path'
-import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync } from 'fs'
+import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, unlinkSync, createWriteStream } from 'fs'
 import { createServer } from 'http'
 import { spawn } from 'child_process'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import Papa from 'papaparse'
+import { createCipheriv, createDecipheriv, randomBytes, scrypt } from 'crypto'
+import { promisify } from 'util'
+import archiver from 'archiver'
 
 // ─── Custom protocol ──────────────────────────────────────────────────────────
 // Primary redirect: baseline://oauth/callback (custom URI scheme, RFC 8252 §7.1)
@@ -60,6 +63,169 @@ interface ChatMessage {
   content: string
 }
 
+// ─── Vault encryption ─────────────────────────────────────────────────────────
+interface VaultMeta {
+  encryptionEnabled: boolean
+  passwordEnabled: boolean
+  touchIdEnabled: boolean
+  passwordSalt?: string  // hex — present when passwordEnabled
+  wrappedKey?: string    // hex AES-GCM-wrapped vault key — present when passwordEnabled
+}
+
+// In-memory vault key; null means unencrypted or locked
+let vaultKey: Buffer | null = null
+
+const scryptAsync = promisify(scrypt)
+
+function getVaultMetaPath(vaultPath: string): string {
+  return join(vaultPath, '.baseline', 'vault.meta')
+}
+
+function readVaultMeta(vaultPath: string): VaultMeta {
+  const p = getVaultMetaPath(vaultPath)
+  if (!existsSync(p)) return { encryptionEnabled: false, passwordEnabled: false, touchIdEnabled: false }
+  try { return JSON.parse(readFileSync(p, 'utf-8')) as VaultMeta }
+  catch { return { encryptionEnabled: false, passwordEnabled: false, touchIdEnabled: false } }
+}
+
+function writeVaultMeta(vaultPath: string, meta: VaultMeta): void {
+  mkdirSync(join(vaultPath, '.baseline'), { recursive: true })
+  writeFileSync(getVaultMetaPath(vaultPath), JSON.stringify(meta, null, 2), 'utf-8')
+}
+
+function getVaultKeyPath(vaultPath: string): string {
+  return join(vaultPath, '.baseline', 'vault.key')
+}
+
+/** Store vault key encrypted via OS keychain (safeStorage). */
+function storeKeyInSafeStorage(vaultPath: string, key: Buffer): void {
+  const encrypted = safeStorage.encryptString(key.toString('hex'))
+  writeFileSync(getVaultKeyPath(vaultPath), encrypted)
+}
+
+/** Load vault key from OS keychain. Returns null if not found. */
+function loadKeyFromSafeStorage(vaultPath: string): Buffer | null {
+  const keyPath = getVaultKeyPath(vaultPath)
+  if (!existsSync(keyPath)) return null
+  try {
+    const hex = safeStorage.decryptString(readFileSync(keyPath))
+    return Buffer.from(hex, 'hex')
+  } catch { return null }
+}
+
+/** AES-256-GCM encrypt plaintext → IV(12) | ciphertext | tag(16) */
+function encryptData(key: Buffer, plaintext: string): Buffer {
+  const iv = randomBytes(12)
+  const cipher = createCipheriv('aes-256-gcm', key, iv)
+  const encrypted = Buffer.concat([cipher.update(plaintext, 'utf-8'), cipher.final()])
+  const tag = cipher.getAuthTag()
+  return Buffer.concat([iv, encrypted, tag])
+}
+
+/** AES-256-GCM decrypt IV(12) | ciphertext | tag(16) → plaintext */
+function decryptData(key: Buffer, data: Buffer): string {
+  const iv = data.subarray(0, 12)
+  const tag = data.subarray(data.length - 16)
+  const ciphertext = data.subarray(12, data.length - 16)
+  const decipher = createDecipheriv('aes-256-gcm', key, iv)
+  decipher.setAuthTag(tag)
+  return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf-8')
+}
+
+/** Read a vault file, decrypting if a vault key is loaded. */
+function encryptedReadFile(filePath: string): string {
+  const data = readFileSync(filePath)
+  if (!vaultKey) return data.toString('utf-8')
+  return decryptData(vaultKey, data)
+}
+
+/** Write a vault file, encrypting if a vault key is loaded. */
+function encryptedWriteFile(filePath: string, content: string): void {
+  if (!vaultKey) {
+    writeFileSync(filePath, content, 'utf-8')
+  } else {
+    writeFileSync(filePath, encryptData(vaultKey, content))
+  }
+}
+
+/** Derive a 32-byte wrapping key from a password using scrypt. */
+async function deriveKeyFromPassword(password: string, salt: Buffer): Promise<Buffer> {
+  return (await scryptAsync(password, salt, 32, { N: 16384, r: 8, p: 1 })) as Buffer
+}
+
+/** Wrap (encrypt) a vault key with a password-derived key → IV(12) | ciphertext | tag(16) */
+async function wrapVaultKey(key: Buffer, password: string, salt: Buffer): Promise<Buffer> {
+  const wrappingKey = await deriveKeyFromPassword(password, salt)
+  const iv = randomBytes(12)
+  const cipher = createCipheriv('aes-256-gcm', wrappingKey, iv)
+  const wrapped = Buffer.concat([cipher.update(key), cipher.final()])
+  const tag = cipher.getAuthTag()
+  return Buffer.concat([iv, wrapped, tag])
+}
+
+/** Unwrap (decrypt) a vault key using a password. Throws on wrong password. */
+async function unwrapVaultKey(wrappedKeyHex: string, password: string, saltHex: string): Promise<Buffer> {
+  const salt = Buffer.from(saltHex, 'hex')
+  const wrappingKey = await deriveKeyFromPassword(password, salt)
+  const buf = Buffer.from(wrappedKeyHex, 'hex')
+  const iv = buf.subarray(0, 12)
+  const tag = buf.subarray(buf.length - 16)
+  const ciphertext = buf.subarray(12, buf.length - 16)
+  const decipher = createDecipheriv('aes-256-gcm', wrappingKey, iv)
+  decipher.setAuthTag(tag)
+  return Buffer.concat([decipher.update(ciphertext), decipher.final()])
+}
+
+/** Enumerate all user-data files in the vault (excluding vault.meta and vault.key). */
+function getAllVaultFiles(vaultPath: string): string[] {
+  const files: string[] = []
+
+  const configPath = join(vaultPath, '.baseline', 'config.json')
+  if (existsSync(configPath)) files.push(configPath)
+
+  const notesPath = join(vaultPath, '.baseline', 'clinician-notes.json')
+  if (existsSync(notesPath)) files.push(notesPath)
+
+  const appointmentsPath = join(vaultPath, '.baseline', 'appointments.json')
+  if (existsSync(appointmentsPath)) files.push(appointmentsPath)
+
+  const baselineDir = join(vaultPath, '.baseline')
+  if (existsSync(baselineDir)) {
+    for (const f of readdirSync(baselineDir)) {
+      if ((f === 'chat.json' || (f.startsWith('chat-') && f.endsWith('.json')))) {
+        files.push(join(baselineDir, f))
+      }
+    }
+  }
+
+  const checkInDir = join(vaultPath, 'check-ins')
+  if (existsSync(checkInDir)) {
+    for (const f of readdirSync(checkInDir)) {
+      if (f.endsWith('.md')) files.push(join(checkInDir, f))
+    }
+  }
+
+  const ouraCsvPath = join(vaultPath, 'oura', 'oura.csv')
+  if (existsSync(ouraCsvPath)) files.push(ouraCsvPath)
+
+  const spendingPath = join(vaultPath, 'ynab', 'spending.csv')
+  if (existsSync(spendingPath)) files.push(spendingPath)
+
+  const screeningsDir = join(vaultPath, 'screenings')
+  if (existsSync(screeningsDir)) {
+    for (const type of readdirSync(screeningsDir)) {
+      const typeDir = join(screeningsDir, type)
+      try {
+        for (const f of readdirSync(typeDir)) {
+          if (f.endsWith('.json')) files.push(join(typeDir, f))
+        }
+      } catch { /* skip non-dirs */ }
+    }
+  }
+
+  return files
+}
+
 function getConfigPath(vaultPath: string): string {
   return join(vaultPath, '.baseline', 'config.json')
 }
@@ -68,7 +234,7 @@ function readConfig(vaultPath: string): Config {
   const configPath = getConfigPath(vaultPath)
   if (!existsSync(configPath)) return {}
   try {
-    return JSON.parse(readFileSync(configPath, 'utf-8'))
+    return JSON.parse(encryptedReadFile(configPath)) as Config
   } catch {
     return {}
   }
@@ -77,7 +243,7 @@ function readConfig(vaultPath: string): Config {
 function writeConfig(vaultPath: string, config: Config): void {
   const dir = join(vaultPath, '.baseline')
   mkdirSync(dir, { recursive: true })
-  writeFileSync(getConfigPath(vaultPath), JSON.stringify(config, null, 2), 'utf-8')
+  encryptedWriteFile(getConfigPath(vaultPath), JSON.stringify(config, null, 2))
 }
 
 // ─── Oura OAuth ───────────────────────────────────────────────────────────────
@@ -202,7 +368,7 @@ function getOuraCsvPath(vaultPath: string): string {
 function readOuraCsv(vaultPath: string): OuraRow[] {
   const csvPath = getOuraCsvPath(vaultPath)
   if (!existsSync(csvPath)) return []
-  const raw = readFileSync(csvPath, 'utf-8')
+  const raw = encryptedReadFile(csvPath)
   const result = Papa.parse<OuraRow>(raw, { header: true, skipEmptyLines: true })
   return result.data
 }
@@ -217,7 +383,7 @@ function upsertOuraRows(vaultPath: string, newRows: OuraRow[]): void {
   const dir = join(vaultPath, 'oura')
   mkdirSync(dir, { recursive: true })
   const csv = Papa.unparse(sorted)
-  writeFileSync(getOuraCsvPath(vaultPath), csv, 'utf-8')
+  encryptedWriteFile(getOuraCsvPath(vaultPath), csv)
 }
 
 // ─── Oura data sync ───────────────────────────────────────────────────────────
@@ -390,7 +556,7 @@ async function generateDailySummary(vaultPath: string, force = false): Promise<s
   const ciPath = join(vaultPath, 'check-ins', `${yesterday}.md`)
   let ciText = ''
   if (existsSync(ciPath)) {
-    ciText = readFileSync(ciPath, 'utf-8')
+    ciText = encryptedReadFile(ciPath)
   }
   // Parse mood/energy/notes out of the markdown (simple regex)
   const moodMatch = ciText.match(/mood:\s*(\d)/i)
@@ -562,13 +728,13 @@ function getCheckInPath(vaultPath: string, date: string): string {
 function readCheckIn(vaultPath: string, date: string): string | null {
   const p = getCheckInPath(vaultPath, date)
   if (!existsSync(p)) return null
-  return readFileSync(p, 'utf-8')
+  return encryptedReadFile(p)
 }
 
 function writeCheckIn(vaultPath: string, date: string, content: string): void {
   const dir = join(vaultPath, 'check-ins')
   mkdirSync(dir, { recursive: true })
-  writeFileSync(getCheckInPath(vaultPath, date), content, 'utf-8')
+  encryptedWriteFile(getCheckInPath(vaultPath, date), content)
 }
 
 function listCheckIns(vaultPath: string): string[] {
@@ -638,12 +804,28 @@ function registerIpcHandlers(): void {
     'start-chat', 'read-chat-history', 'write-chat-history',
     'connect-ynab', 'sync-ynab', 'read-ynab-csv', 'disconnect-ynab',
     'read-clinician-notes', 'write-clinician-notes',
-    'read-appointments', 'write-appointments'
+    'read-appointments', 'write-appointments',
+    'get-vault-meta', 'is-vault-unlocked',
+    'unlock-with-password', 'unlock-with-touchid',
+    'enable-encryption', 'disable-encryption',
+    'set-encryption-password', 'remove-encryption-password',
+    'enable-touchid-backup', 'disable-touchid-backup',
+    'can-use-touchid', 'export-vault-plaintext'
   ]
   for (const ch of channels) ipcMain.removeHandler(ch)
 
   // Vault setup
-  ipcMain.handle('get-vault-path', () => getVaultPath())
+  ipcMain.handle('get-vault-path', () => {
+    const vaultPath = getVaultPath()
+    // Auto-unlock for safeStorage-only mode (no password, no explicit TouchID unlock needed)
+    if (vaultPath && !vaultKey) {
+      const meta = readVaultMeta(vaultPath)
+      if (meta.encryptionEnabled && !meta.passwordEnabled && !meta.touchIdEnabled) {
+        vaultKey = loadKeyFromSafeStorage(vaultPath)
+      }
+    }
+    return vaultPath
+  })
 
   ipcMain.handle('pick-folder', async () => {
     const result = await dialog.showOpenDialog({ properties: ['openDirectory'] })
@@ -891,7 +1073,7 @@ function registerIpcHandlers(): void {
     if (!config.chatHistory || config.chatHistory === 'session') return []
     const p = getChatHistoryPath(vaultPath, config.chatHistory)
     if (!existsSync(p)) return []
-    try { return JSON.parse(readFileSync(p, 'utf-8')) as ChatMessage[] } catch { return [] }
+    try { return JSON.parse(encryptedReadFile(p)) as ChatMessage[] } catch { return [] }
   })
 
   ipcMain.handle('write-chat-history', (_e, messages: ChatMessage[]) => {
@@ -901,7 +1083,7 @@ function registerIpcHandlers(): void {
     if (!config.chatHistory || config.chatHistory === 'session') return
     const dir = join(vaultPath, '.baseline')
     mkdirSync(dir, { recursive: true })
-    writeFileSync(getChatHistoryPath(vaultPath, config.chatHistory), JSON.stringify(messages, null, 2), 'utf-8')
+    encryptedWriteFile(getChatHistoryPath(vaultPath, config.chatHistory), JSON.stringify(messages, null, 2))
   })
 
   // ── YNAB ────────────────────────────────────────────────────────────────────
@@ -964,6 +1146,172 @@ function registerIpcHandlers(): void {
     if (canceled || !filePath) return
     writeFileSync(filePath, Buffer.from(buffer))
   })
+
+  // ── Encryption ──────────────────────────────────────────────────────────────
+
+  ipcMain.handle('get-vault-meta', () => {
+    const vaultPath = getVaultPath()
+    if (!vaultPath) return { encryptionEnabled: false, passwordEnabled: false, touchIdEnabled: false }
+    return readVaultMeta(vaultPath)
+  })
+
+  ipcMain.handle('is-vault-unlocked', () => {
+    const vaultPath = getVaultPath()
+    if (!vaultPath) return true
+    const meta = readVaultMeta(vaultPath)
+    if (!meta.encryptionEnabled) return true
+    return vaultKey !== null
+  })
+
+  ipcMain.handle('can-use-touchid', () => {
+    return process.platform === 'darwin' && systemPreferences.canPromptTouchID()
+  })
+
+  ipcMain.handle('unlock-with-password', async (_e, password: string) => {
+    const vaultPath = getVaultPath()
+    if (!vaultPath) return { success: false, error: 'No vault path set' }
+    const meta = readVaultMeta(vaultPath)
+    if (!meta.passwordEnabled || !meta.passwordSalt || !meta.wrappedKey) {
+      return { success: false, error: 'No password is set' }
+    }
+    try {
+      vaultKey = await unwrapVaultKey(meta.wrappedKey, password, meta.passwordSalt)
+      return { success: true }
+    } catch {
+      return { success: false, error: 'Wrong password' }
+    }
+  })
+
+  ipcMain.handle('unlock-with-touchid', async () => {
+    const vaultPath = getVaultPath()
+    if (!vaultPath) return { success: false, error: 'No vault path set' }
+    try {
+      await systemPreferences.promptTouchID('unlock your Baseline vault')
+      const key = loadKeyFromSafeStorage(vaultPath)
+      if (!key) return { success: false, error: 'No backup key found — please use your password' }
+      vaultKey = key
+      return { success: true }
+    } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : 'Touch ID failed' }
+    }
+  })
+
+  ipcMain.handle('enable-encryption', () => {
+    const vaultPath = getVaultPath()
+    if (!vaultPath) throw new Error('No vault path set')
+    if (!safeStorage.isEncryptionAvailable()) throw new Error('Secure storage is not available on this system')
+    const key = randomBytes(32)
+    // Encrypt all existing vault files
+    const files = getAllVaultFiles(vaultPath)
+    for (const filePath of files) {
+      const content = readFileSync(filePath, 'utf-8')
+      writeFileSync(filePath, encryptData(key, content))
+    }
+    // Store key via OS keychain
+    storeKeyInSafeStorage(vaultPath, key)
+    writeVaultMeta(vaultPath, { encryptionEnabled: true, passwordEnabled: false, touchIdEnabled: false })
+    vaultKey = key
+  })
+
+  ipcMain.handle('disable-encryption', () => {
+    const vaultPath = getVaultPath()
+    if (!vaultPath) throw new Error('No vault path set')
+    if (!vaultKey) throw new Error('Vault is locked — cannot disable encryption')
+    const key = vaultKey
+    // Decrypt all files
+    const files = getAllVaultFiles(vaultPath)
+    for (const filePath of files) {
+      const data = readFileSync(filePath)
+      const plaintext = decryptData(key, data)
+      writeFileSync(filePath, plaintext, 'utf-8')
+    }
+    // Remove vault.key
+    const keyPath = getVaultKeyPath(vaultPath)
+    if (existsSync(keyPath)) unlinkSync(keyPath)
+    writeVaultMeta(vaultPath, { encryptionEnabled: false, passwordEnabled: false, touchIdEnabled: false })
+    vaultKey = null
+  })
+
+  ipcMain.handle('set-encryption-password', async (_e, password: string) => {
+    const vaultPath = getVaultPath()
+    if (!vaultPath) throw new Error('No vault path set')
+    if (!vaultKey) throw new Error('Vault is not unlocked')
+    const salt = randomBytes(32)
+    const wrapped = await wrapVaultKey(vaultKey, password, salt)
+    // Remove safeStorage copy — no silent backdoor
+    const keyPath = getVaultKeyPath(vaultPath)
+    if (existsSync(keyPath)) unlinkSync(keyPath)
+    const meta = readVaultMeta(vaultPath)
+    writeVaultMeta(vaultPath, {
+      ...meta,
+      passwordEnabled: true,
+      passwordSalt: salt.toString('hex'),
+      wrappedKey: wrapped.toString('hex')
+    })
+  })
+
+  ipcMain.handle('remove-encryption-password', async (_e, currentPassword: string) => {
+    const vaultPath = getVaultPath()
+    if (!vaultPath) throw new Error('No vault path set')
+    if (!vaultKey) throw new Error('Vault is not unlocked')
+    const meta = readVaultMeta(vaultPath)
+    if (!meta.passwordEnabled || !meta.passwordSalt || !meta.wrappedKey) throw new Error('No password is set')
+    // Verify the current password before removing
+    try {
+      await unwrapVaultKey(meta.wrappedKey, currentPassword, meta.passwordSalt)
+    } catch {
+      throw new Error('Wrong password')
+    }
+    // Re-store key via safeStorage now that password is being removed
+    storeKeyInSafeStorage(vaultPath, vaultKey)
+    const { passwordSalt: _s, wrappedKey: _w, ...rest } = meta
+    writeVaultMeta(vaultPath, { ...rest, passwordEnabled: false })
+  })
+
+  ipcMain.handle('enable-touchid-backup', async () => {
+    const vaultPath = getVaultPath()
+    if (!vaultPath) throw new Error('No vault path set')
+    if (!vaultKey) throw new Error('Vault is not unlocked')
+    if (!systemPreferences.canPromptTouchID()) throw new Error('Touch ID is not available')
+    await systemPreferences.promptTouchID('enable Touch ID backup for your Baseline vault')
+    storeKeyInSafeStorage(vaultPath, vaultKey)
+    const meta = readVaultMeta(vaultPath)
+    writeVaultMeta(vaultPath, { ...meta, touchIdEnabled: true })
+  })
+
+  ipcMain.handle('disable-touchid-backup', () => {
+    const vaultPath = getVaultPath()
+    if (!vaultPath) throw new Error('No vault path set')
+    const keyPath = getVaultKeyPath(vaultPath)
+    if (existsSync(keyPath)) unlinkSync(keyPath)
+    const meta = readVaultMeta(vaultPath)
+    writeVaultMeta(vaultPath, { ...meta, touchIdEnabled: false })
+  })
+
+  ipcMain.handle('export-vault-plaintext', async () => {
+    const vaultPath = getVaultPath()
+    if (!vaultPath) throw new Error('No vault path set')
+    const meta = readVaultMeta(vaultPath)
+    if (meta.encryptionEnabled && !vaultKey) throw new Error('Vault is locked')
+    const { canceled, filePath } = await dialog.showSaveDialog(mainWindow!, {
+      defaultPath: 'baseline-export.zip',
+      filters: [{ name: 'ZIP Archive', extensions: ['zip'] }]
+    })
+    if (canceled || !filePath) return
+    await new Promise<void>((resolve, reject) => {
+      const output = createWriteStream(filePath)
+      const archive = archiver('zip', { zlib: { level: 9 } })
+      output.on('close', resolve)
+      archive.on('error', reject)
+      archive.pipe(output)
+      for (const file of getAllVaultFiles(vaultPath)) {
+        const content = encryptedReadFile(file)
+        const relativePath = file.slice(vaultPath.length + 1)
+        archive.append(content, { name: relativePath })
+      }
+      archive.finalize()
+    })
+  })
 }
 
 // ─── Screenings ───────────────────────────────────────────────────────────────
@@ -988,7 +1336,7 @@ function listScreeningResults(vaultPath: string): ScreeningResult[] {
     try {
       for (const file of readdirSync(typeDir).filter((f) => f.endsWith('.json'))) {
         try {
-          const raw = readFileSync(join(typeDir, file), 'utf-8')
+          const raw = encryptedReadFile(join(typeDir, file))
           results.push(JSON.parse(raw) as ScreeningResult)
         } catch { /* skip malformed files */ }
       }
@@ -1000,7 +1348,7 @@ function listScreeningResults(vaultPath: string): ScreeningResult[] {
 function saveScreeningResult(vaultPath: string, result: ScreeningResult): void {
   const dir = getScreeningDir(vaultPath, result.type)
   mkdirSync(dir, { recursive: true })
-  writeFileSync(join(dir, `${result.date}.json`), JSON.stringify(result, null, 2), 'utf-8')
+  encryptedWriteFile(join(dir, `${result.date}.json`), JSON.stringify(result, null, 2))
   // Invalidate the cached summary so the next load regenerates with this screening included
   const config = readConfig(vaultPath)
   if (config.summaryDate) {
@@ -1027,14 +1375,14 @@ function getSpendingCsvPath(vaultPath: string): string {
 function readSpendingCsv(vaultPath: string): SpendingRow[] {
   const p = getSpendingCsvPath(vaultPath)
   if (!existsSync(p)) return []
-  const result = Papa.parse<SpendingRow>(readFileSync(p, 'utf-8'), { header: true, skipEmptyLines: true })
+  const result = Papa.parse<SpendingRow>(encryptedReadFile(p), { header: true, skipEmptyLines: true })
   return result.data
 }
 
 function writeSpendingCsv(vaultPath: string, rows: SpendingRow[]): void {
   const dir = join(vaultPath, 'ynab')
   mkdirSync(dir, { recursive: true })
-  writeFileSync(getSpendingCsvPath(vaultPath), Papa.unparse(rows), 'utf-8')
+  encryptedWriteFile(getSpendingCsvPath(vaultPath), Papa.unparse(rows))
 }
 
 async function fetchYnabBudgets(pat: string): Promise<YnabBudget[]> {
@@ -1105,7 +1453,7 @@ function buildChatContext(vaultPath: string): string {
     if (files.length > 0) {
       const lines = files.map((file) => {
         const date = file.replace('.md', '')
-        const content = readFileSync(join(checkInDir, file), 'utf-8')
+        const content = encryptedReadFile(join(checkInDir, file))
         const moodMatch    = content.match(/mood:\s*(\d)/i)
         const energyMatch  = content.match(/energy:\s*(\d)/i)
         const notesMatch   = content.match(/##\s*Notes\s*\n+([\s\S]*?)(?:\n##|$)/i)
@@ -1152,13 +1500,13 @@ function getClinicianNotesPath(vaultPath: string): string {
 function readClinicianNotes(vaultPath: string): ClinicianSnippet[] {
   const p = getClinicianNotesPath(vaultPath)
   if (!existsSync(p)) return []
-  try { return JSON.parse(readFileSync(p, 'utf-8')) } catch { return [] }
+  try { return JSON.parse(encryptedReadFile(p)) as ClinicianSnippet[] } catch { return [] }
 }
 
 function writeClinicianNotes(vaultPath: string, notes: ClinicianSnippet[]): void {
   const dir = join(vaultPath, '.baseline')
   mkdirSync(dir, { recursive: true })
-  writeFileSync(getClinicianNotesPath(vaultPath), JSON.stringify(notes, null, 2), 'utf-8')
+  encryptedWriteFile(getClinicianNotesPath(vaultPath), JSON.stringify(notes, null, 2))
 }
 
 // ─── Appointments ─────────────────────────────────────────────────────────────
@@ -1178,13 +1526,13 @@ function getAppointmentsPath(vaultPath: string): string {
 function readAppointments(vaultPath: string): Appointment[] {
   const p = getAppointmentsPath(vaultPath)
   if (!existsSync(p)) return []
-  try { return JSON.parse(readFileSync(p, 'utf-8')) } catch { return [] }
+  try { return JSON.parse(encryptedReadFile(p)) as Appointment[] } catch { return [] }
 }
 
 function writeAppointments(vaultPath: string, appointments: Appointment[]): void {
   const dir = join(vaultPath, '.baseline')
   mkdirSync(dir, { recursive: true })
-  writeFileSync(getAppointmentsPath(vaultPath), JSON.stringify(appointments, null, 2), 'utf-8')
+  encryptedWriteFile(getAppointmentsPath(vaultPath), JSON.stringify(appointments, null, 2))
 }
 
 function getChatHistoryPath(vaultPath: string, mode: 'daily' | 'persistent'): string {

@@ -3,7 +3,7 @@
  * Provides realistic stub data so the UI can be previewed without Electron.
  */
 
-import type { OuraRow, Config, ScreeningResult, ChatMessage, YnabBudget, SpendingRow, ClinicianSnippet, Appointment } from '../types'
+import type { OuraRow, Config, ScreeningResult, ChatMessage, YnabBudget, SpendingRow, ClinicianSnippet, Appointment, VaultMeta } from '../types'
 
 const today = new Date().toISOString().split('T')[0]
 
@@ -67,6 +67,8 @@ let mockClinicianNotes: ClinicianSnippet[] = [
     },
   },
 ]
+let mockVaultMeta: VaultMeta = { encryptionEnabled: false, passwordEnabled: false, touchIdEnabled: false }
+
 let mockAppointments: Appointment[] = [
   {
     id: 'mock-appt-1',
@@ -242,6 +244,26 @@ export function installDevMock(): void {
     // Export
     savePdf: async (_buffer: number[], filename: string) => {
       console.log(`[dev mock] savePdf called for "${filename}" (${_buffer.length} bytes) — no-op in browser preview`)
+    },
+
+    // Encryption
+    readVaultMeta: async () => ({ ...mockVaultMeta }),
+    isVaultUnlocked: async () => true,
+    canUseTouchId: async () => false,
+    unlockWithPassword: async (_password: string) => ({ success: true }),
+    unlockWithTouchId: async () => ({ success: true }),
+    enableEncryption: async () => { mockVaultMeta = { ...mockVaultMeta, encryptionEnabled: true } },
+    disableEncryption: async () => { mockVaultMeta = { encryptionEnabled: false, passwordEnabled: false, touchIdEnabled: false } },
+    setEncryptionPassword: async (_password: string) => {
+      mockVaultMeta = { ...mockVaultMeta, passwordEnabled: true }
+    },
+    removeEncryptionPassword: async (_currentPassword: string) => {
+      mockVaultMeta = { ...mockVaultMeta, passwordEnabled: false }
+    },
+    enableTouchIdBackup: async () => { mockVaultMeta = { ...mockVaultMeta, touchIdEnabled: true } },
+    disableTouchIdBackup: async () => { mockVaultMeta = { ...mockVaultMeta, touchIdEnabled: false } },
+    exportVaultPlaintext: async () => {
+      console.log('[dev mock] exportVaultPlaintext — no-op in browser preview')
     },
   }
 }

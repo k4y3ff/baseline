@@ -16,6 +16,8 @@
   },
   "dependencies": {
     "@electron-toolkit/tsconfig": "^2.0.0",
+    "@types/archiver": "^7.0.0",
+    "archiver": "^7.0.1",
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1",
     "papaparse": "^5.4.1",
