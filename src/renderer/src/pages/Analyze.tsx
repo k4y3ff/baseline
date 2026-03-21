@@ -4,6 +4,21 @@ import { useConfig } from '../hooks/useConfig'
 import { useScreenings } from '../hooks/useScreenings'
 import WeekChart, { CHART_VARS, CHART_VAR_KEYS } from '../components/charts/WeekChart'
 import type { ChartVarKey } from '../components/charts/WeekChart'
+import type { Config } from '../types'
+
+function enabledVarKeysFor(config: Config): ChartVarKey[] {
+  const oura = Boolean(config.ouraAccessToken)
+  return CHART_VAR_KEYS.filter((k) => {
+    const req = CHART_VARS[k].requires
+    if (!req) return true
+    if (req === 'oura')      return oura
+    if (req === 'ynab')      return Boolean(config.ynabEnabled)
+    if (req === 'weight')    return Boolean(config.weightEnabled)
+    if (req === 'nutrition') return Boolean(config.nutritionEnabled)
+    if (req === 'phq9')      return Boolean(config.screeningsEnabled?.includes('PHQ-9'))
+    return true
+  }) as ChartVarKey[]
+}
 import type { ChatMessage } from '../types'
 
 const selectCls = 'bg-[--color-surface] border border-[--color-border] rounded-lg px-2 py-1.5 text-xs outline-none focus:border-[--color-brand] transition-colors flex-1 min-w-0'
@@ -37,6 +52,16 @@ export default function Analyze() {
 
   const changeVarA = (k: ChartVarKey) => { setVarA(k); localStorage.setItem('analyze-var-a', k) }
   const changeVarB = (k: ChartVarKey) => { setVarB(k); localStorage.setItem('analyze-var-b', k) }
+
+  // Variables enabled by current config
+  const enabledKeys = useMemo(() => enabledVarKeysFor(config), [config])
+
+  // Reset selections if a chosen var becomes disabled
+  useEffect(() => {
+    if (enabledKeys.length === 0) return
+    if (!enabledKeys.includes(varA)) changeVarA(enabledKeys[0])
+    if (!enabledKeys.includes(varB)) changeVarB(enabledKeys[Math.min(1, enabledKeys.length - 1)])
+  }, [enabledKeys])
 
   // Join PHQ-9 scores into the day data by date
   const chartDays = useMemo(() => {
@@ -216,7 +241,7 @@ export default function Analyze() {
                 onChange={(e) => changeVarA(e.target.value as ChartVarKey)}
                 className={selectCls}
               >
-                {CHART_VAR_KEYS.map((k) => (
+                {enabledKeys.map((k) => (
                   <option key={k} value={k}>{CHART_VARS[k].label}</option>
                 ))}
               </select>
@@ -226,7 +251,7 @@ export default function Analyze() {
                 onChange={(e) => changeVarB(e.target.value as ChartVarKey)}
                 className={selectCls}
               >
-                {CHART_VAR_KEYS.map((k) => (
+                {enabledKeys.map((k) => (
                   <option key={k} value={k}>{CHART_VARS[k].label}</option>
                 ))}
               </select>

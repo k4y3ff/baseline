@@ -17,21 +17,22 @@ export interface ChartVarDef {
   unit: string
   domain: [number, number | 'auto']
   color: string
+  requires?: 'oura' | 'ynab' | 'weight' | 'nutrition' | 'phq9'
 }
 
 export const CHART_VARS: Record<string, ChartVarDef> = {
-  activity_score:  { label: 'Activity',     unit: '',     domain: [0, 100],    color: '#f87171' },
-  calories:        { label: 'Calories',     unit: 'kcal', domain: [0, 'auto'], color: '#f472b6' },
-  energy:          { label: 'Energy',       unit: '/5',   domain: [0, 5],      color: '#fb923c' },
-  hrv_avg:         { label: 'HRV Balance',  unit: '',     domain: [0, 100],    color: '#34d399' },
-  mood:            { label: 'Mood',         unit: '/5',   domain: [0, 5],      color: '#c084fc' },
-  phq9_score:      { label: 'PHQ-9',        unit: '/27',  domain: [0, 27],     color: '#2dd4bf' },
-  readiness_score: { label: 'Readiness',    unit: '',     domain: [0, 100],    color: '#fbbf24' },
-  sleep_hours:     { label: 'Sleep',        unit: 'h',    domain: [0, 12],     color: '#818cf8' },
-  sleep_score:     { label: 'Sleep Score',  unit: '',     domain: [0, 100],    color: '#6366f1' },
-  spending:        { label: 'Spending',     unit: '$',    domain: [0, 'auto'], color: '#fb7185' },
-  steps:           { label: 'Steps',        unit: '',     domain: [0, 'auto'], color: '#38bdf8' },
-  weight:          { label: 'Weight',       unit: 'lbs',  domain: [0, 'auto'], color: '#a3e635' },
+  activity_score:  { label: 'Activity',     unit: '',     domain: [0, 100],    color: '#f87171', requires: 'oura'      },
+  calories:        { label: 'Calories',     unit: 'kcal', domain: [0, 'auto'], color: '#f472b6', requires: 'nutrition' },
+  energy:          { label: 'Energy',       unit: '/5',   domain: [0, 5],      color: '#fb923c'                        },
+  hrv_avg:         { label: 'HRV Balance',  unit: '',     domain: [0, 100],    color: '#34d399', requires: 'oura'      },
+  mood:            { label: 'Mood',         unit: '/5',   domain: [0, 5],      color: '#c084fc'                        },
+  phq9_score:      { label: 'PHQ-9',        unit: '/27',  domain: [0, 27],     color: '#2dd4bf', requires: 'phq9'      },
+  readiness_score: { label: 'Readiness',    unit: '',     domain: [0, 100],    color: '#fbbf24', requires: 'oura'      },
+  sleep_hours:     { label: 'Sleep',        unit: 'h',    domain: [0, 12],     color: '#818cf8', requires: 'oura'      },
+  sleep_score:     { label: 'Sleep Score',  unit: '',     domain: [0, 100],    color: '#6366f1', requires: 'oura'      },
+  spending:        { label: 'Spending',     unit: '$',    domain: [0, 'auto'], color: '#fb7185', requires: 'ynab'      },
+  steps:           { label: 'Steps',        unit: '',     domain: [0, 'auto'], color: '#38bdf8', requires: 'oura'      },
+  weight:          { label: 'Weight',       unit: 'lbs',  domain: [0, 'auto'], color: '#a3e635', requires: 'weight'    },
 }
 
 export const CHART_VAR_KEYS = Object.keys(CHART_VARS)
