@@ -126,7 +126,7 @@ export default function CheckIn() {
       )}
 
       {/* Header */}
-      <div className="drag-region px-5 pt-5 pb-4">
+      <div className="drag-region px-5 pt-[44px] pb-4">
         <div className="no-drag">
           <h1 className="text-xl font-bold">
             {existing

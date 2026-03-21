@@ -172,7 +172,7 @@ export default function Settings() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="drag-region px-5 pt-5 pb-4">
+      <div className="drag-region px-5 pt-[44px] pb-4">
         <h1 className="no-drag text-xl font-bold">Settings</h1>
       </div>
 

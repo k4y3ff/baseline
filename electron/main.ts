@@ -1280,10 +1280,10 @@ function clearNotificationState(): void {
 // ─── Window ───────────────────────────────────────────────────────────────────
 function createWindow(): void {
   mainWindow = new BrowserWindow({
-    width: 420,
+    width: 600,
     height: 820,
     resizable: true,
-    minWidth: 420,
+    minWidth: 500,
     minHeight: 680,
     show: false,
     autoHideMenuBar: true,

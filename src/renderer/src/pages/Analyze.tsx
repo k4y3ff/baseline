@@ -198,7 +198,7 @@ export default function Analyze() {
       )}
 
       {/* Header */}
-      <div className="drag-region px-5 pt-5 pb-2">
+      <div className="drag-region px-5 pt-[44px] pb-2">
         <h1 className="no-drag text-xl font-bold">Analyze</h1>
       </div>
 

@@ -9,7 +9,7 @@ const links = [
 
 export default function Nav() {
   return (
-    <nav className="no-drag flex flex-col shrink-0 w-[52px] h-full bg-[--color-surface]" style={{ borderRight: '1px solid rgba(255,255,255,0.08)' }}>
+    <nav className="no-drag flex flex-col shrink-0 w-[76px] h-full bg-[--color-surface]" style={{ borderRight: '1px solid rgba(255,255,255,0.08)' }}>
       {/* Drag region — clears macOS traffic lights */}
       <div className="drag-region h-[42px] shrink-0" />
 
@@ -21,7 +21,7 @@ export default function Nav() {
             to={to}
             title={label}
             className={({ isActive }) =>
-              `flex items-center justify-center w-full h-10 rounded-lg text-[18px] leading-none transition-colors ${
+              `flex items-center justify-center w-full h-10 rounded-lg text-[22px] leading-none transition-colors ${
                 isActive
                   ? 'bg-white/10 text-white'
                   : 'text-[--color-muted] hover:text-white hover:bg-white/[0.06]'
@@ -39,7 +39,7 @@ export default function Nav() {
           to="/settings"
           title="Settings"
           className={({ isActive }) =>
-            `flex items-center justify-center w-full h-10 rounded-lg text-[18px] leading-none transition-colors ${
+            `flex items-center justify-center w-full h-10 rounded-lg text-[22px] leading-none transition-colors ${
               isActive
                 ? 'bg-white/10 text-white'
                 : 'text-[--color-muted] hover:text-white hover:bg-white/[0.06]'

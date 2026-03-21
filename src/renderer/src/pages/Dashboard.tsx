@@ -184,7 +184,7 @@ export default function Dashboard() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="drag-region px-5 pt-5 pb-3">
+      <div className="drag-region px-5 pt-[44px] pb-3">
         <div className="no-drag flex items-center justify-between">
           <AppLogo width={108} />
           {syncing ? (
