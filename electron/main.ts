@@ -40,6 +40,10 @@ interface Config {
   chatHistory?: 'session' | 'daily' | 'persistent'
   nutritionEnabled?: boolean
   weightEnabled?: boolean
+  ynabEnabled?: boolean
+  ynabPat?: string
+  ynabBudgetId?: string
+  ynabBudgetName?: string
   screeningsEnabled?: string[]
   screeningFrequency?: 'weekly' | 'biweekly' | 'monthly' | 'quarterly'
 }
@@ -429,6 +433,13 @@ async function generateDailySummary(vaultPath: string, force = false): Promise<s
     }
   }
 
+  // Include recent spending if YNAB is enabled
+  const spendingMap = new Map(readSpendingCsv(vaultPath).map((r) => [r.date, r.spending]))
+  const ydSpending = spendingMap.get(yesterday)
+  const tdSpending = spendingMap.get(today)
+  if (ydSpending) lines.push('', `Yesterday's spending: $${parseFloat(ydSpending).toFixed(2)}`)
+  if (tdSpending) lines.push(`Today's spending so far: $${parseFloat(tdSpending).toFixed(2)}`)
+
   lines.push('', 'Summary:')
   const prompt = lines.join('\n')
 
@@ -528,7 +539,8 @@ function registerIpcHandlers(): void {
     'read-check-in', 'write-check-in', 'list-check-ins',
     'check-ollama', 'generate-summary',
     'list-screenings', 'save-screening',
-    'start-chat', 'read-chat-history', 'write-chat-history'
+    'start-chat', 'read-chat-history', 'write-chat-history',
+    'connect-ynab', 'sync-ynab', 'read-ynab-csv', 'disconnect-ynab'
   ]
   for (const ch of channels) ipcMain.removeHandler(ch)
 
@@ -785,6 +797,31 @@ function registerIpcHandlers(): void {
     mkdirSync(dir, { recursive: true })
     writeFileSync(getChatHistoryPath(vaultPath, config.chatHistory), JSON.stringify(messages, null, 2), 'utf-8')
   })
+
+  // ── YNAB ────────────────────────────────────────────────────────────────────
+  ipcMain.handle('connect-ynab', async (_e, pat: string) => {
+    return fetchYnabBudgets(pat)
+  })
+
+  ipcMain.handle('sync-ynab', async (_e, days: number = 30) => {
+    const vaultPath = getVaultPath()
+    if (!vaultPath) throw new Error('No vault path set')
+    return syncYnabSpending(vaultPath, days)
+  })
+
+  ipcMain.handle('read-ynab-csv', () => {
+    const vaultPath = getVaultPath()
+    if (!vaultPath) return []
+    return readSpendingCsv(vaultPath)
+  })
+
+  ipcMain.handle('disconnect-ynab', () => {
+    const vaultPath = getVaultPath()
+    if (!vaultPath) return
+    const { ynabPat, ynabBudgetId, ynabBudgetName, ynabEnabled, ...rest } = readConfig(vaultPath)
+    void ynabPat; void ynabBudgetId; void ynabBudgetName; void ynabEnabled
+    writeConfig(vaultPath, rest)
+  })
 }
 
 // ─── Screenings ───────────────────────────────────────────────────────────────
@@ -827,6 +864,77 @@ function saveScreeningResult(vaultPath: string, result: ScreeningResult): void {
   if (config.summaryDate) {
     writeConfig(vaultPath, { ...config, summaryDate: undefined, summaryText: undefined })
   }
+}
+
+// ─── YNAB ─────────────────────────────────────────────────────────────────────
+
+const YNAB_BASE = 'https://api.ynab.com/v1'
+
+interface YnabBudget { id: string; name: string }
+interface YnabTransaction {
+  id: string; date: string; amount: number
+  transfer_account_id: string | null; deleted: boolean
+}
+
+interface SpendingRow { date: string; spending: string; synced_at: string }
+
+function getSpendingCsvPath(vaultPath: string): string {
+  return join(vaultPath, 'ynab', 'spending.csv')
+}
+
+function readSpendingCsv(vaultPath: string): SpendingRow[] {
+  const p = getSpendingCsvPath(vaultPath)
+  if (!existsSync(p)) return []
+  const result = Papa.parse<SpendingRow>(readFileSync(p, 'utf-8'), { header: true, skipEmptyLines: true })
+  return result.data
+}
+
+function writeSpendingCsv(vaultPath: string, rows: SpendingRow[]): void {
+  const dir = join(vaultPath, 'ynab')
+  mkdirSync(dir, { recursive: true })
+  writeFileSync(getSpendingCsvPath(vaultPath), Papa.unparse(rows), 'utf-8')
+}
+
+async function fetchYnabBudgets(pat: string): Promise<YnabBudget[]> {
+  const res = await fetch(`${YNAB_BASE}/budgets`, {
+    headers: { Authorization: `Bearer ${pat}` }
+  })
+  if (!res.ok) throw new Error(`YNAB error ${res.status} — check your Personal Access Token`)
+  const json = await res.json() as { data: { budgets: YnabBudget[] } }
+  return json.data.budgets.map((b) => ({ id: b.id, name: b.name }))
+}
+
+async function syncYnabSpending(vaultPath: string, days = 30): Promise<SpendingRow[]> {
+  const config = readConfig(vaultPath)
+  if (!config.ynabPat || !config.ynabBudgetId) throw new Error('YNAB is not configured')
+
+  const since = new Date()
+  since.setDate(since.getDate() - days)
+  const sinceStr = localDateStr(since)
+
+  const res = await fetch(
+    `${YNAB_BASE}/budgets/${config.ynabBudgetId}/transactions?since_date=${sinceStr}`,
+    { headers: { Authorization: `Bearer ${config.ynabPat}` } }
+  )
+  if (!res.ok) throw new Error(`YNAB sync failed: ${res.status}`)
+  const json = await res.json() as { data: { transactions: YnabTransaction[] } }
+
+  // Aggregate outflow by date; skip transfers and deleted entries
+  const byDate = new Map<string, number>()
+  for (const t of json.data.transactions) {
+    if (t.deleted || t.transfer_account_id || t.amount >= 0) continue
+    byDate.set(t.date, (byDate.get(t.date) ?? 0) + Math.abs(t.amount))
+  }
+
+  const now = new Date().toISOString()
+  // Merge with existing rows (upsert by date)
+  const existing = new Map(readSpendingCsv(vaultPath).map((r) => [r.date, r]))
+  for (const [date, milliunits] of byDate) {
+    existing.set(date, { date, spending: (milliunits / 1000).toFixed(2), synced_at: now })
+  }
+  const merged = [...existing.values()].sort((a, b) => a.date.localeCompare(b.date))
+  writeSpendingCsv(vaultPath, merged)
+  return merged
 }
 
 // ─── Chat ─────────────────────────────────────────────────────────────────────
@@ -874,6 +982,12 @@ function buildChatContext(vaultPath: string): string {
   if (screenings.length > 0) {
     const lines = screenings.map((s) => `${s.date}: ${s.type} score ${s.score} (${s.severity})`)
     sections.push(`=== SCREENINGS ===\n${lines.join('\n')}`)
+  }
+
+  const spendingRows = readSpendingCsv(vaultPath)
+  if (spendingRows.length > 0) {
+    const lines = spendingRows.map((r) => `${r.date}: $${parseFloat(r.spending).toFixed(2)}`)
+    sections.push(`=== DAILY SPENDING (USD) ===\n${lines.join('\n')}`)
   }
 
   return sections.join('\n\n')

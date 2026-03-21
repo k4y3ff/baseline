@@ -3,7 +3,7 @@
  * Provides realistic stub data so the UI can be previewed without Electron.
  */
 
-import type { OuraRow, Config, ScreeningResult, ChatMessage } from '../types'
+import type { OuraRow, Config, ScreeningResult, ChatMessage, YnabBudget, SpendingRow } from '../types'
 
 const today = new Date().toISOString().split('T')[0]
 
@@ -43,6 +43,20 @@ const chatTokenCbs: Array<(token: string) => void> = []
 const chatDoneCbs: Array<() => void> = []
 const chatErrorCbs: Array<(err: string) => void> = []
 let mockChatHistory: ChatMessage[] = []
+
+const mockYnabBudgets: YnabBudget[] = [
+  { id: 'budget-1', name: 'My Budget' }
+]
+
+const mockSpendingRows: SpendingRow[] = [
+  { date: daysAgo(6), spending: '42.50', synced_at: today },
+  { date: daysAgo(5), spending: '18.75', synced_at: today },
+  { date: daysAgo(4), spending: '97.20', synced_at: today },
+  { date: daysAgo(3), spending: '31.00', synced_at: today },
+  { date: daysAgo(2), spending: '55.40', synced_at: today },
+  { date: daysAgo(1), spending: '24.90', synced_at: today },
+  { date: today,      spending: '12.30', synced_at: today },
+]
 
 export function installDevMock(): void {
   if (typeof window === 'undefined') return
@@ -157,5 +171,22 @@ export function installDevMock(): void {
     },
     readChatHistory: async () => [...mockChatHistory],
     writeChatHistory: async (messages: ChatMessage[]) => { mockChatHistory = [...messages] },
+
+    // YNAB
+    connectYnab: async (_pat: string) => {
+      await new Promise((r) => setTimeout(r, 800))
+      mockConfig = { ...mockConfig, ynabPat: _pat, ynabBudgetId: mockYnabBudgets[0].id, ynabBudgetName: mockYnabBudgets[0].name, ynabEnabled: true }
+      return [...mockYnabBudgets]
+    },
+    syncYnab: async (_days?: number) => {
+      await new Promise((r) => setTimeout(r, 1000))
+      return [...mockSpendingRows]
+    },
+    readYnabCsv: async () => [...mockSpendingRows],
+    disconnectYnab: async () => {
+      const { ynabPat, ynabBudgetId, ynabBudgetName, ynabEnabled, ...rest } = mockConfig
+      void ynabPat; void ynabBudgetId; void ynabBudgetName; void ynabEnabled
+      mockConfig = rest
+    },
   }
 }

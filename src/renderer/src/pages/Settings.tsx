@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useConfig } from '../hooks/useConfig'
 import { ALL_SCREENINGS, FREQUENCY_LABELS } from '../lib/screenings'
 import type { ScreeningFrequency } from '../lib/screenings'
-import type { Config } from '../types'
+import type { Config, YnabBudget } from '../types'
 
 export default function Settings() {
   const { config, loading, save, reload } = useConfig()
@@ -108,6 +108,59 @@ export default function Settings() {
       setSyncResult('error')
     } finally {
       setSyncing(false)
+    }
+  }
+
+  // ── YNAB state ──
+  const [ynabPat, setYnabPat] = useState('')
+  const [ynabConnecting, setYnabConnecting] = useState(false)
+  const [ynabConnectError, setYnabConnectError] = useState<string | null>(null)
+  const [ynabBudgets, setYnabBudgets] = useState<YnabBudget[]>([])
+  const [ynabSyncing, setYnabSyncing] = useState(false)
+  const [ynabSyncResult, setYnabSyncResult] = useState<'ok' | 'error' | null>(null)
+
+  const isYnabConnected = Boolean(config.ynabPat)
+
+  const connectYnab = async () => {
+    const pat = ynabPat.trim()
+    if (!pat) return
+    setYnabConnecting(true)
+    setYnabConnectError(null)
+    try {
+      const budgets = await window.baseline.connectYnab(pat)
+      setYnabBudgets(budgets)
+      // Auto-select first budget if only one
+      if (budgets.length === 1) {
+        await save({ ynabPat: pat, ynabBudgetId: budgets[0].id, ynabBudgetName: budgets[0].name, ynabEnabled: true })
+      } else {
+        await save({ ynabPat: pat, ynabEnabled: true })
+      }
+      setYnabPat('')
+      await reload()
+    } catch (err) {
+      setYnabConnectError(err instanceof Error ? err.message : 'Failed to connect to YNAB')
+    } finally {
+      setYnabConnecting(false)
+    }
+  }
+
+  const disconnectYnab = async () => {
+    await window.baseline.disconnectYnab()
+    await reload()
+    setYnabBudgets([])
+    setYnabSyncResult(null)
+  }
+
+  const syncYnabNow = async () => {
+    setYnabSyncing(true)
+    setYnabSyncResult(null)
+    try {
+      await window.baseline.syncYnab(30)
+      setYnabSyncResult('ok')
+    } catch {
+      setYnabSyncResult('error')
+    } finally {
+      setYnabSyncing(false)
     }
   }
 
@@ -460,6 +513,94 @@ export default function Settings() {
               </div>
             )}
           </div>
+        </section>
+
+        {/* YNAB */}
+        <section className="flex flex-col gap-3">
+          <h2 className="text-xs font-semibold text-[--color-muted] uppercase tracking-wider">
+            YNAB
+          </h2>
+
+          {loading ? (
+            <div className="text-[--color-muted] text-sm">Loading…</div>
+          ) : isYnabConnected ? (
+            /* ── Connected state ── */
+            <div className="bg-[--color-surface-2] rounded-xl border border-[--color-border] p-4 flex flex-col gap-3">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-green-400 shrink-0" />
+                <span className="text-sm font-medium">Connected</span>
+              </div>
+              {config.ynabBudgetName && (
+                <p className="text-[--color-muted] text-xs">Budget: {config.ynabBudgetName}</p>
+              )}
+              {/* Budget selector — shown when PAT is set but no budget chosen yet, or when budgets list is available */}
+              {ynabBudgets.length > 1 && (
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs text-[--color-muted]">Select budget</label>
+                  <select
+                    value={config.ynabBudgetId ?? ''}
+                    onChange={async (e) => {
+                      const chosen = ynabBudgets.find((b) => b.id === e.target.value)
+                      if (chosen) await save({ ynabBudgetId: chosen.id, ynabBudgetName: chosen.name })
+                    }}
+                    className="bg-[--color-surface] border border-[--color-border] rounded-lg px-3 py-1.5 text-sm outline-none focus:border-[--color-brand] transition-colors"
+                  >
+                    <option value="">— choose —</option>
+                    {ynabBudgets.map((b) => (
+                      <option key={b.id} value={b.id}>{b.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <div className="flex gap-2">
+                <button
+                  onClick={syncYnabNow}
+                  disabled={ynabSyncing || !config.ynabBudgetId}
+                  className="flex-1 py-2 rounded-lg bg-[--color-brand] text-white text-sm disabled:opacity-40 hover:opacity-90 transition-opacity"
+                >
+                  {ynabSyncing ? 'Syncing…' : 'Sync now'}
+                </button>
+                <button
+                  onClick={disconnectYnab}
+                  className="flex-1 py-2 rounded-lg border border-[--color-border] text-sm text-red-400 hover:bg-red-500/10 transition-colors"
+                >
+                  Disconnect
+                </button>
+              </div>
+              {ynabSyncResult === 'ok' && (
+                <p className="text-green-400 text-sm text-center">Synced successfully!</p>
+              )}
+              {ynabSyncResult === 'error' && (
+                <p className="text-red-400 text-sm text-center">Sync failed — check your connection.</p>
+              )}
+            </div>
+          ) : (
+            /* ── Not connected state ── */
+            <div className="bg-[--color-surface-2] rounded-xl border border-[--color-border] p-4 flex flex-col gap-3">
+              <p className="text-[--color-muted] text-xs leading-relaxed">
+                Generate a Personal Access Token at{' '}
+                <span className="text-indigo-400">app.ynab.com/settings/developer</span> and paste it
+                below. Daily spending totals will be synced to your vault.
+              </p>
+              <input
+                type="password"
+                placeholder="YNAB Personal Access Token"
+                value={ynabPat}
+                onChange={(e) => { setYnabPat(e.target.value); setYnabConnectError(null) }}
+                className="w-full px-3 py-2.5 rounded-lg bg-[#111] border border-[--color-border] text-sm outline-none focus:border-[--color-brand] transition-colors"
+              />
+              <button
+                onClick={connectYnab}
+                disabled={ynabConnecting || !ynabPat.trim()}
+                className="w-full py-2.5 rounded-lg bg-[--color-brand] text-white text-sm font-medium disabled:opacity-40 hover:opacity-90 transition-opacity"
+              >
+                {ynabConnecting ? 'Connecting…' : 'Connect YNAB'}
+              </button>
+              {ynabConnectError && (
+                <p className="text-red-400 text-xs text-center">{ynabConnectError}</p>
+              )}
+            </div>
+          )}
         </section>
 
         {/* About */}

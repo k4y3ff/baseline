@@ -45,10 +45,12 @@ export function useDashboard(numDays = 14) {
   const load = useCallback(async () => {
     setLoading(true)
     const dates = lastNDays(numDays)
-    const [ouraRows, checkInDates] = await Promise.all([
+    const [ouraRows, checkInDates, spendingRows] = await Promise.all([
       window.baseline.readOuraCsv(),
-      window.baseline.listCheckIns()
+      window.baseline.listCheckIns(),
+      window.baseline.readYnabCsv()
     ])
+    const spendingMap = new Map(spendingRows.map((r) => [r.date, parseFloat(r.spending)]))
 
     const ouraMap = new Map<string, OuraRow>(ouraRows.map((r) => [r.date, r]))
     const checkInSet = new Set(checkInDates)
@@ -79,6 +81,7 @@ export function useDashboard(numDays = 14) {
         steps: num(oura?.steps),
         calories: ci?.nutrition?.calories ?? null,
         weight: ci?.weight ?? null,
+        spending: spendingMap.get(date) ?? null,
         phq9_score: null // joined in Analyze from screening results
       }
     })

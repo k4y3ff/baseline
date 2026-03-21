@@ -12,6 +12,10 @@ export interface Config {
   chatHistory?: 'session' | 'daily' | 'persistent'
   nutritionEnabled?: boolean
   weightEnabled?: boolean
+  ynabEnabled?: boolean
+  ynabPat?: string
+  ynabBudgetId?: string
+  ynabBudgetName?: string
   screeningsEnabled?: string[]
   screeningFrequency?: 'weekly' | 'biweekly' | 'monthly' | 'quarterly'
 }
@@ -19,6 +23,17 @@ export interface Config {
 export interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
+}
+
+export interface YnabBudget {
+  id: string
+  name: string
+}
+
+export interface SpendingRow {
+  date: string
+  spending: string   // decimal string, e.g. "45.23"
+  synced_at: string
 }
 
 export interface ScreeningResult {
@@ -73,5 +88,6 @@ export interface DayData {
   steps: number | null
   calories: number | null
   weight: number | null
+  spending: number | null
   phq9_score: number | null
 }

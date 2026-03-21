@@ -33,6 +33,17 @@ export interface ChatMessage {
   content: string
 }
 
+export interface YnabBudget {
+  id: string
+  name: string
+}
+
+export interface SpendingRow {
+  date: string
+  spending: string
+  synced_at: string
+}
+
 const baseline = {
   // Vault setup
   getVaultPath: (): Promise<string | null> => ipcRenderer.invoke('get-vault-path'),
@@ -96,7 +107,13 @@ const baseline = {
   },
   readChatHistory: (): Promise<ChatMessage[]> => ipcRenderer.invoke('read-chat-history'),
   writeChatHistory: (messages: ChatMessage[]): Promise<void> =>
-    ipcRenderer.invoke('write-chat-history', messages)
+    ipcRenderer.invoke('write-chat-history', messages),
+
+  // YNAB
+  connectYnab: (pat: string): Promise<YnabBudget[]> => ipcRenderer.invoke('connect-ynab', pat),
+  syncYnab: (days?: number): Promise<SpendingRow[]> => ipcRenderer.invoke('sync-ynab', days ?? 30),
+  readYnabCsv: (): Promise<SpendingRow[]> => ipcRenderer.invoke('read-ynab-csv'),
+  disconnectYnab: (): Promise<void> => ipcRenderer.invoke('disconnect-ynab')
 }
 
 if (process.contextIsolated) {

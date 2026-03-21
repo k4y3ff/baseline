@@ -1,4 +1,4 @@
-import type { Config, OuraRow, ScreeningResult, ChatMessage } from './index'
+import type { Config, OuraRow, ScreeningResult, ChatMessage, YnabBudget, SpendingRow } from './index'
 
 declare global {
   interface Window {
@@ -26,6 +26,10 @@ declare global {
       onChatError(cb: (err: string) => void): () => void
       readChatHistory(): Promise<ChatMessage[]>
       writeChatHistory(messages: ChatMessage[]): Promise<void>
+      connectYnab(pat: string): Promise<YnabBudget[]>
+      syncYnab(days?: number): Promise<SpendingRow[]>
+      readYnabCsv(): Promise<SpendingRow[]>
+      disconnectYnab(): Promise<void>
     }
   }
 }
