@@ -120,7 +120,7 @@ export default function CheckIn() {
         <ContextMenu
           x={menu.x}
           y={menu.y}
-          onSave={() => addSnippet({ capturedDate: date, source: 'check-in', label: menu.label, text: menu.text })}
+          onSave={(comment) => addSnippet({ capturedDate: date, source: 'check-in', label: menu.label, text: menu.text, comment: comment || undefined })}
           onClose={() => setMenu(null)}
         />
       )}

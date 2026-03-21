@@ -11,7 +11,10 @@ function formatAllSnippets(snippets: ClinicianSnippet[]): string {
   const dates = [...byDate.keys()].sort((a, b) => b.localeCompare(a))
   return dates.map((date) => {
     const items = byDate.get(date)!
-    const sections = items.map((s) => `[${s.label}]\n${s.text}`).join('\n\n')
+    const sections = items.map((s) => {
+      const note = s.comment ? `\nNote: ${s.comment}` : ''
+      return `[${s.label}]\n${s.text}${note}`
+    }).join('\n\n')
     return `=== ${date} ===\n\n${sections}`
   }).join('\n\n')
 }
@@ -99,6 +102,11 @@ export default function Prepare() {
                       <pre className="text-xs text-[--color-text] whitespace-pre-wrap font-mono leading-relaxed">
                         {snippet.text}
                       </pre>
+                      {snippet.comment && (
+                        <p className="text-xs text-[--color-muted] italic mt-2 border-t border-[--color-border] pt-2">
+                          {snippet.comment}
+                        </p>
+                      )}
                     </div>
                   ))}
                 </div>

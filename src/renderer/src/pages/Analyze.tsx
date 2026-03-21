@@ -185,11 +185,12 @@ export default function Analyze() {
         <ContextMenu
           x={chartMenu.x}
           y={chartMenu.y}
-          onSave={() => addSnippet({
+          onSave={(comment) => addSnippet({
             capturedDate: today,
             source: 'analyze',
             label: `${CHART_VARS[varA].label} vs ${CHART_VARS[varB].label}`,
             text: buildChartTable(chartDays, varA, varB, numDays),
+            comment: comment || undefined,
           })}
           onClose={() => setChartMenu(null)}
         />

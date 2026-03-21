@@ -89,6 +89,7 @@ export interface ClinicianSnippet {
   source: 'check-in' | 'analyze'
   label: string
   text: string
+  comment?: string
 }
 
 export interface DayData {
