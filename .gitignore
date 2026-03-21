@@ -5,6 +5,10 @@ node_modules/
 out/
 dist/
 
+# Generated icon intermediates (source: scripts/gen-app-icon.mjs)
+# build/icon.icns is committed — electron-builder needs it
+build/icon.iconset/
+
 # electron-vite dev cache
 .vite/
 

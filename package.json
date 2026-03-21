@@ -47,7 +47,8 @@
     },
     "mac": {
       "target": "dmg",
-      "category": "public.app-category.healthcare-fitness"
+      "category": "public.app-category.healthcare-fitness",
+      "icon": "build/icon.icns"
     },
     "files": [
       "out/**/*"

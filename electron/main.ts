@@ -1237,6 +1237,9 @@ function createWindow(): void {
 app.whenReady().then(() => {
   electronApp.setAppUserModelId('com.baseline.app')
   app.on('browser-window-created', (_, win) => optimizer.watchWindowShortcuts(win))
+  if (is.dev && process.platform === 'darwin') {
+    app.dock.setIcon(nativeImage.createFromPath(join(app.getAppPath(), 'build/icon.iconset/icon_512x512.png')))
+  }
   registerIpcHandlers()
   createWindow()
   createTray()
