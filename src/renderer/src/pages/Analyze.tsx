@@ -317,7 +317,7 @@ export default function Analyze() {
                 className={`px-2 py-0.5 rounded-full text-[10px] transition-colors ${
                   numDays === r.days
                     ? 'bg-[--color-brand] text-white'
-                    : 'text-[--color-muted] hover:text-[--color-text]'
+                    : 'text-[--color-muted] hover:text-[--color-text] hover:bg-white/[0.06]'
                 }`}
               >
                 {r.label}

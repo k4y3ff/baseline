@@ -107,7 +107,7 @@ export default function Screening() {
                     className={`py-2 px-3 rounded-lg border text-xs text-left transition-all ${
                       selected
                         ? 'border-[--color-brand] bg-indigo-500/15 text-white'
-                        : 'border-[--color-border] bg-[--color-surface-2] text-[--color-muted]'
+                        : 'border-[--color-border] bg-[--color-surface-2] text-[--color-muted] hover:border-[--color-muted] hover:bg-white/[0.06]'
                     } disabled:cursor-default`}
                   >
                     <span className="font-semibold mr-1">{vi}</span>

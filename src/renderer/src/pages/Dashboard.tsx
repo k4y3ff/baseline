@@ -214,7 +214,7 @@ export default function Dashboard() {
         {hasCheckInToday && today && (
           <div
             onClick={() => navigate('/check-in')}
-            className="w-full py-3 rounded-xl bg-[--color-surface-2] border border-[--color-border] flex items-center justify-between px-4 cursor-pointer hover:border-[--color-brand] transition-colors"
+            className="w-full py-3 rounded-xl bg-[--color-surface-2] border border-[--color-border] flex items-center justify-between px-4 cursor-pointer hover:border-[--color-brand] hover:bg-white/[0.06] transition-colors"
           >
             <div className="flex items-center gap-3">
               <span className="text-2xl">{MOOD_EMOJI[today.mood!]}</span>
@@ -231,7 +231,7 @@ export default function Dashboard() {
           <button
             key={id}
             onClick={() => navigate(`/screening/${id}`)}
-            className="w-full py-3 px-4 rounded-xl bg-[--color-surface-2] border border-[--color-brand]/40 flex items-center justify-between hover:border-[--color-brand] transition-colors"
+            className="w-full py-3 px-4 rounded-xl bg-[--color-surface-2] border border-[--color-brand]/40 flex items-center justify-between hover:border-[--color-brand] hover:bg-white/[0.06] transition-colors"
           >
             <div className="flex items-center gap-3">
               <span className="text-xl">📋</span>

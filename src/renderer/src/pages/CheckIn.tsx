@@ -160,7 +160,7 @@ export default function CheckIn() {
                 className={`flex-1 flex flex-col items-center gap-1 py-3 rounded-xl border transition-all ${
                   mood === v
                     ? 'border-[--color-brand] bg-indigo-500/10'
-                    : 'border-[--color-border] bg-[--color-surface-2] hover:border-[--color-muted]'
+                    : 'border-[--color-border] bg-[--color-surface-2] hover:border-[--color-muted] hover:bg-white/[0.06]'
                 }`}
               >
                 <span className="text-2xl">{MOOD_LABELS[v]}</span>
@@ -181,7 +181,7 @@ export default function CheckIn() {
                 className={`flex-1 flex flex-col items-center gap-1 py-3 rounded-xl border transition-all ${
                   energy === v
                     ? 'border-[--color-brand] bg-indigo-500/10'
-                    : 'border-[--color-border] bg-[--color-surface-2] hover:border-[--color-muted]'
+                    : 'border-[--color-border] bg-[--color-surface-2] hover:border-[--color-muted] hover:bg-white/[0.06]'
                 }`}
               >
                 <span className="text-2xl">{ENERGY_LABELS[v]}</span>

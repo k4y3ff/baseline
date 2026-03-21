@@ -57,13 +57,13 @@ function CreateAppointmentForm({ onSave, onCancel }: {
       <div className="flex gap-2 justify-end">
         <button
           onClick={onCancel}
-          className="text-xs px-3 py-1.5 rounded-lg border border-[--color-border] text-[--color-muted] hover:border-[--color-muted] transition-colors"
+          className="text-xs px-3 py-1.5 rounded-lg border border-[--color-border] text-[--color-muted] hover:border-[--color-muted] hover:bg-white/[0.06] transition-colors"
         >
           Cancel
         </button>
         <button
           onClick={() => { if (date) onSave(date, title) }}
-          className="text-xs px-3 py-1.5 rounded-lg border border-[--color-border] hover:border-[--color-muted] transition-colors"
+          className="text-xs px-3 py-1.5 rounded-lg border border-[--color-border] hover:border-[--color-muted] hover:bg-white/[0.06] transition-colors"
         >
           Create
         </button>
@@ -112,7 +112,7 @@ function AppointmentCard({ appointment, snippets, onDelete, onAssignSnippet, onU
       className={`rounded-xl border p-3 cursor-pointer transition-colors ${
         isDragOver
           ? 'bg-[--color-surface] border-[--color-muted]'
-          : 'bg-[--color-surface-2] border-[--color-border] hover:border-[--color-muted]'
+          : 'bg-[--color-surface-2] border-[--color-border] hover:border-[--color-muted] hover:bg-white/[0.06]'
       }`}
     >
       <div className="flex items-start justify-between gap-2 mb-2">
@@ -301,7 +301,7 @@ export default function Prepare() {
             <div className="flex gap-2">
               <button
                 onClick={handleCopyAll}
-                className="text-xs px-2.5 py-1 rounded-lg border border-[--color-border] hover:border-[--color-muted] transition-colors"
+                className="text-xs px-2.5 py-1 rounded-lg border border-[--color-border] hover:border-[--color-muted] hover:bg-white/[0.06] transition-colors"
               >
                 Copy all
               </button>
@@ -328,7 +328,7 @@ export default function Prepare() {
               {!creatingAppointment && (
                 <button
                   onClick={() => setCreatingAppointment(true)}
-                  className="text-xs px-3 py-1.5 rounded-lg border border-[--color-border] hover:border-[--color-muted] transition-colors"
+                  className="text-xs px-3 py-1.5 rounded-lg border border-[--color-border] hover:border-[--color-muted] hover:bg-white/[0.06] transition-colors"
                 >
                   Add Appointment
                 </button>
