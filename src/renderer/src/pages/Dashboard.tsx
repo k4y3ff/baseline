@@ -197,9 +197,9 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-5 flex flex-col gap-5 pb-6">
+      <div className="flex-1 overflow-y-auto px-5 pb-6 grid grid-cols-1 gap-5 auto-rows-min content-start sm:grid-cols-2">
         {/* Today metrics */}
-        <div className="flex gap-2">
+        <div className="flex gap-2 sm:col-span-2">
           <MetricCard label="Readiness" value={today?.readiness_score ?? null} />
           <MetricCard label="HRV" value={today?.hrv_avg != null ? Math.round(today.hrv_avg) : null} />
           <MetricCard label="Sleep" value={today?.sleep_hours ?? null} unit="h" />

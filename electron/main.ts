@@ -1107,6 +1107,9 @@ function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 420,
     height: 820,
+    resizable: true,
+    minWidth: 420,
+    minHeight: 680,
     show: false,
     autoHideMenuBar: true,
     titleBarStyle: 'hiddenInset',

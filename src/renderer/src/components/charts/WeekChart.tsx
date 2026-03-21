@@ -71,7 +71,8 @@ export default function WeekChart({ days, varA, varB, numDays = 7 }: Props) {
   }))
 
   return (
-    <ResponsiveContainer width="100%" height={180}>
+    <div style={{ width: '100%', height: 180, minWidth: 0 }}>
+    <ResponsiveContainer width="100%" height="100%">
       <ComposedChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: -16 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#2e2e2e" />
         <XAxis
@@ -151,5 +152,6 @@ export default function WeekChart({ days, varA, varB, numDays = 7 }: Props) {
         />
       </ComposedChart>
     </ResponsiveContainer>
+    </div>
   )
 }
