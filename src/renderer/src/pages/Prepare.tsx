@@ -516,9 +516,20 @@ export default function Prepare() {
                               ✕
                             </button>
                           </div>
-                          <pre className="text-xs text-[--color-text] whitespace-pre-wrap font-mono leading-relaxed">
-                            {snippet.text}
-                          </pre>
+                          {snippet.chartMeta ? (
+                            <div className="mt-1">
+                              <WeekChart
+                                days={snippet.chartMeta.days}
+                                varA={snippet.chartMeta.varA as ChartVarKey}
+                                varB={snippet.chartMeta.varB as ChartVarKey}
+                                numDays={snippet.chartMeta.numDays}
+                              />
+                            </div>
+                          ) : (
+                            <pre className="text-xs text-[--color-text] whitespace-pre-wrap font-mono leading-relaxed">
+                              {snippet.text}
+                            </pre>
+                          )}
                           {snippet.comment && (
                             <p className="text-xs text-[--color-muted] italic mt-2 border-t border-[--color-border] pt-2">
                               {snippet.comment}
