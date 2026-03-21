@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, shell, Tray, nativeImage } from 'electron'
 import { join } from 'path'
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync } from 'fs'
 import { createServer } from 'http'
@@ -1181,6 +1181,31 @@ function getChatHistoryPath(vaultPath: string, mode: 'daily' | 'persistent'): st
 
 let activeChatController: AbortController | null = null
 
+// ─── Tray ─────────────────────────────────────────────────────────────────────
+let tray: Tray | null = null
+
+const resourcesPath = is.dev
+  ? join(app.getAppPath(), 'resources')
+  : join(process.resourcesPath, 'resources')
+
+function createTray(): void {
+  const icon = nativeImage.createFromPath(join(resourcesPath, 'trayTemplate.png'))
+  tray = new Tray(icon)
+  tray.setToolTip('Baseline')
+  tray.on('click', () => {
+    if (!mainWindow) {
+      createWindow()
+      return
+    }
+    if (mainWindow.isVisible() && mainWindow.isFocused()) {
+      mainWindow.hide()
+    } else {
+      mainWindow.show()
+      mainWindow.focus()
+    }
+  })
+}
+
 // ─── Window ───────────────────────────────────────────────────────────────────
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -1214,6 +1239,7 @@ app.whenReady().then(() => {
   app.on('browser-window-created', (_, win) => optimizer.watchWindowShortcuts(win))
   registerIpcHandlers()
   createWindow()
+  createTray()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })

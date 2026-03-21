@@ -51,6 +51,9 @@
     },
     "files": [
       "out/**/*"
+    ],
+    "extraResources": [
+      { "from": "resources/", "to": "resources/" }
     ]
   }
 }
