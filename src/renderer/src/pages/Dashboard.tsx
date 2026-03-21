@@ -5,6 +5,7 @@ import { useConfig } from '../hooks/useConfig'
 import { useScreenings } from '../hooks/useScreenings'
 import { SCREENING_MAP, isDue } from '../lib/screenings'
 import type { ScreeningFrequency } from '../lib/screenings'
+import AppLogo from '../components/ui/AppLogo'
 
 const MOOD_EMOJI = ['', '😞', '😕', '😐', '🙂', '😄']
 
@@ -114,16 +115,15 @@ export default function Dashboard() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="drag-region px-5 pt-10 pb-2">
+      <div className="drag-region px-5 pt-10 pb-3">
         <div className="no-drag flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold">Baseline</h1>
-            <p className="text-[--color-muted] text-xs mt-0.5">
-              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-            </p>
-          </div>
-          {syncing && (
+          <AppLogo width={108} />
+          {syncing ? (
             <span className="text-[--color-muted] text-xs">Syncing…</span>
+          ) : (
+            <span className="text-[--color-muted] text-xs">
+              {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+            </span>
           )}
         </div>
       </div>
