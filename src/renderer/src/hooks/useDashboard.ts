@@ -83,7 +83,10 @@ export function useDashboard(numDays = 14) {
         weight: ci?.weight ?? null,
         medication: ci?.medication != null ? (ci.medication ? 1 : 0) : null,
         spending: spendingMap.get(date) ?? null,
-        phq9_score: null // joined in Analyze from screening results
+        phq9_score: null, // joined in Analyze from screening results
+        menstrual_flow: ci?.menstrualFlow != null
+          ? ({ none: 0, light: 1, medium: 2, heavy: 3 }[ci.menstrualFlow] ?? null)
+          : null,
       }
     })
 

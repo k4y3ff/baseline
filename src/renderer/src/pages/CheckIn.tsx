@@ -39,6 +39,9 @@ export default function CheckIn() {
   // Medication state (only used when medicationEnabled)
   const [medication, setMedication] = useState(false)
 
+  // Menstrual flow state (only used when menstrualEnabled)
+  const [menstrualFlow, setMenstrualFlow] = useState<'none' | 'light' | 'medium' | 'heavy'>('none')
+
   // Load today's oura data and any existing check-in
   useEffect(() => {
     const load = async () => {
@@ -56,6 +59,7 @@ export default function CheckIn() {
         }
         if (ci.weight != null) setWeight(String(ci.weight))
         if (ci.medication != null) setMedication(ci.medication)
+        if (ci.menstrualFlow != null) setMenstrualFlow(ci.menstrualFlow)
         setExisting(true)
       }
     }
@@ -90,8 +94,9 @@ export default function CheckIn() {
 
     const weightVal = config.weightEnabled && weight !== '' ? parseFloat(weight) : undefined
     const medicationVal = config.medicationEnabled ? medication : undefined
+    const menstrualFlowVal = config.menstrualEnabled ? menstrualFlow : undefined
 
-    const md = formatCheckIn({ date, mood, energy, notes, nutrition, weight: weightVal, medication: medicationVal, oura: ouraData })
+    const md = formatCheckIn({ date, mood, energy, notes, nutrition, weight: weightVal, medication: medicationVal, menstrualFlow: menstrualFlowVal, oura: ouraData })
     await window.baseline.writeCheckIn(date, md)
     setSaving(false)
     navigate('/dashboard')
@@ -222,6 +227,28 @@ export default function CheckIn() {
               <p className="text-xs text-[--color-muted] mt-0.5">Mark if you took your medications today</p>
             </div>
           </label>
+        )}
+
+        {/* Menstrual flow — only when enabled in Settings */}
+        {config.menstrualEnabled && (
+          <div>
+            <label className="text-sm font-medium text-[--color-muted] block mb-3">Flow</label>
+            <div className="flex gap-2">
+              {(['none', 'light', 'medium', 'heavy'] as const).map((level) => (
+                <button
+                  key={level}
+                  onClick={() => setMenstrualFlow(level)}
+                  className={`flex-1 py-2.5 rounded-xl border text-sm transition-all ${
+                    menstrualFlow === level
+                      ? 'border-[--color-brand] bg-indigo-500/10 text-white'
+                      : 'border-[--color-border] bg-[--color-surface-2] text-[--color-muted] hover:border-[--color-muted]'
+                  }`}
+                >
+                  {level.charAt(0).toUpperCase() + level.slice(1)}
+                </button>
+              ))}
+            </div>
+          </div>
         )}
 
         {/* Nutrition — only when enabled in Settings */}

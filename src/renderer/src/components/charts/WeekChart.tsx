@@ -17,7 +17,7 @@ export interface ChartVarDef {
   unit: string
   domain: [number, number | 'auto']
   color: string
-  requires?: 'oura' | 'ynab' | 'weight' | 'nutrition' | 'phq9' | 'medication'
+  requires?: 'oura' | 'ynab' | 'weight' | 'nutrition' | 'phq9' | 'medication' | 'menstrual'
 }
 
 export const CHART_VARS: Record<string, ChartVarDef> = {
@@ -34,6 +34,7 @@ export const CHART_VARS: Record<string, ChartVarDef> = {
   spending:        { label: 'Spending',     unit: '$',    domain: [0, 'auto'], color: '#fb7185', requires: 'ynab'      },
   steps:           { label: 'Steps',        unit: '',     domain: [0, 'auto'], color: '#38bdf8', requires: 'oura'      },
   weight:          { label: 'Weight',       unit: 'lbs',  domain: [0, 'auto'], color: '#a3e635', requires: 'weight'    },
+  menstrual_flow:  { label: 'Menstrual Cycle', unit: '',  domain: [0, 3],      color: '#f9a8d4', requires: 'menstrual' },
 }
 
 export const CHART_VAR_KEYS = Object.keys(CHART_VARS)

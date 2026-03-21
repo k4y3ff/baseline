@@ -17,6 +17,7 @@ function enabledVarKeysFor(config: Config): ChartVarKey[] {
     if (req === 'nutrition') return Boolean(config.nutritionEnabled)
     if (req === 'phq9')      return Boolean(config.screeningsEnabled?.includes('PHQ-9'))
     if (req === 'medication') return Boolean(config.medicationEnabled)
+    if (req === 'menstrual')  return Boolean(config.menstrualEnabled)
     return true
   }) as ChartVarKey[]
 }
@@ -54,8 +55,13 @@ export default function Analyze() {
   const changeVarA = (k: ChartVarKey) => { setVarA(k); localStorage.setItem('analyze-var-a', k) }
   const changeVarB = (k: ChartVarKey) => { setVarB(k); localStorage.setItem('analyze-var-b', k) }
 
-  // Variables enabled by current config
-  const enabledKeys = useMemo(() => enabledVarKeysFor(config), [config])
+  // Variables enabled by current config, sorted alphabetically by label
+  const enabledKeys = useMemo(
+    () => [...enabledVarKeysFor(config)].sort((a, b) =>
+      CHART_VARS[a].label.localeCompare(CHART_VARS[b].label)
+    ),
+    [config]
+  )
 
   // Reset selections if a chosen var becomes disabled
   useEffect(() => {

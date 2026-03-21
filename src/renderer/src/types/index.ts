@@ -16,6 +16,7 @@ export interface Config {
   nutritionEnabled?: boolean
   weightEnabled?: boolean
   medicationEnabled?: boolean
+  menstrualEnabled?: boolean
   ynabEnabled?: boolean
   ynabPat?: string
   ynabBudgetId?: string
@@ -72,6 +73,7 @@ export interface CheckIn {
   }
   weight?: number
   medication?: boolean
+  menstrualFlow?: 'none' | 'light' | 'medium' | 'heavy'
   // Oura data embedded in the file (parsed back out)
   oura?: {
     sleep_hours?: number
@@ -96,4 +98,5 @@ export interface DayData {
   medication: number | null  // 1 = took, 0 = didn't take, null = not logged
   spending: number | null
   phq9_score: number | null
+  menstrual_flow: number | null  // 0=none, 1=light, 2=medium, 3=heavy
 }
