@@ -6,6 +6,9 @@ export interface Config {
   ouraTokenExpiresAt?: number // Unix ms timestamp
   summaryDate?: string        // YYYY-MM-DD of last generated summary
   summaryText?: string        // cached summary text
+  warningsEnabled?: boolean
+  warningsDate?: string       // YYYY-MM-DD of last generated warnings
+  warningsText?: string       // JSON-serialised string[] or "[]" for no warnings
   ollamaSummariesEnabled?: boolean
   ollamaModel?: string        // defaults to 'llama3.2'
   chatEnabled?: boolean

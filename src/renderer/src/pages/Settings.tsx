@@ -24,7 +24,7 @@ export default function Settings() {
 
   // Ollama is considered verified if the user clicked "Check for Ollama" this session,
   // OR if any AI feature is already enabled (meaning it was verified in a prior session).
-  const ollamaVerified = ollamaAvailable === true || config.ollamaSummariesEnabled === true || config.chatEnabled === true
+  const ollamaVerified = ollamaAvailable === true || config.ollamaSummariesEnabled === true || config.chatEnabled === true || config.warningsEnabled === true
 
   // Sync model field when config loads
   useEffect(() => {
@@ -382,6 +382,29 @@ export default function Settings() {
               )}
             </div>
 
+            {/* Health warnings toggle */}
+            <div className="flex items-center justify-between gap-4 pt-1 border-t border-[--color-border]">
+              <div>
+                <p className="text-sm font-medium">Health warnings</p>
+                <p className="text-xs text-[--color-muted] mt-0.5">
+                  Flags outliers from the last 7 days on the Today tab
+                </p>
+              </div>
+              <button
+                role="switch"
+                aria-checked={config.warningsEnabled ?? false}
+                disabled={!config.warningsEnabled && !ollamaVerified}
+                onClick={() => save({ warningsEnabled: !config.warningsEnabled })}
+                className={`relative shrink-0 w-11 h-6 rounded-full transition-colors ${
+                  config.warningsEnabled ? 'bg-[--color-brand]' : 'bg-[--color-border]'
+                } disabled:opacity-40`}
+              >
+                <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
+                  config.warningsEnabled ? 'translate-x-5' : 'translate-x-0'
+                }`} />
+              </button>
+            </div>
+
             {/* Ollama detection — shown when Ollama hasn't been verified yet */}
             {!ollamaVerified && (
               <div className="flex flex-col gap-2 pt-1 border-t border-[--color-border]">
@@ -411,7 +434,7 @@ export default function Settings() {
             )}
 
             {/* Model picker — shown when any AI feature is enabled */}
-            {(config.ollamaSummariesEnabled || config.chatEnabled) && (
+            {(config.ollamaSummariesEnabled || config.chatEnabled || config.warningsEnabled) && (
               <div className="flex flex-col gap-2 pt-1 border-t border-[--color-border]">
                 <label className="text-xs text-[--color-muted]">Model</label>
                 <input

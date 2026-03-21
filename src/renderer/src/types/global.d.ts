@@ -18,6 +18,7 @@ declare global {
       listCheckIns(): Promise<string[]>
       checkOllama(): Promise<{ available: boolean }>
       generateSummary(force?: boolean): Promise<string>
+      generateWarnings(force?: boolean): Promise<string>
       listScreenings(): Promise<ScreeningResult[]>
       saveScreening(result: ScreeningResult): Promise<void>
       startChat(messages: ChatMessage[]): Promise<void>

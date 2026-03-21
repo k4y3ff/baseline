@@ -393,6 +393,7 @@ export function createCapacitorBaseline(): typeof window.baseline {
 
     checkOllama:     async () => ({ available: false }),
     generateSummary: async () => '',
+    generateWarnings: async () => '[]',
     startChat:       async (_messages: ChatMessage[]) => { /* no-op */ },
     onChatToken:     (_cb: (token: string) => void)  => () => {},
     onChatDone:      (_cb: () => void)               => () => {},

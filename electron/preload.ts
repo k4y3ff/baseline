@@ -7,6 +7,9 @@ export interface Config {
   ouraAccessToken?: string
   ouraRefreshToken?: string
   ouraTokenExpiresAt?: number
+  warningsEnabled?: boolean
+  warningsDate?: string
+  warningsText?: string
 }
 
 export interface OuraRow {
@@ -81,6 +84,7 @@ const baseline = {
   // Ollama
   checkOllama: (): Promise<{ available: boolean }> => ipcRenderer.invoke('check-ollama'),
   generateSummary: (force?: boolean): Promise<string> => ipcRenderer.invoke('generate-summary', force ?? false),
+  generateWarnings: (force?: boolean): Promise<string> => ipcRenderer.invoke('generate-warnings', force ?? false),
 
   // Screenings
   listScreenings: (): Promise<ScreeningResult[]> => ipcRenderer.invoke('list-screenings'),

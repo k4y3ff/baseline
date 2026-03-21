@@ -34,6 +34,9 @@ interface Config {
   ouraTokenExpiresAt?: number // Unix ms timestamp
   summaryDate?: string        // YYYY-MM-DD of the last generated summary
   summaryText?: string        // cached summary text
+  warningsEnabled?: boolean
+  warningsDate?: string       // YYYY-MM-DD of last generated warnings
+  warningsText?: string       // JSON-serialised string[] or "[]" for no warnings
   ollamaSummariesEnabled?: boolean
   ollamaModel?: string        // defaults to 'llama3.2'
   chatEnabled?: boolean
@@ -459,6 +462,95 @@ async function generateDailySummary(vaultPath: string, force = false): Promise<s
   return summary
 }
 
+async function generateWarnings(vaultPath: string, force = false): Promise<string> {
+  const config = readConfig(vaultPath)
+  const model = config.ollamaModel?.trim() || OLLAMA_MODEL
+  const today = localDateStr(new Date())
+
+  // Return cached result if fresh
+  if (!force && config.warningsDate === today && config.warningsText !== undefined) {
+    return config.warningsText
+  }
+
+  await ensureOllama()
+
+  // Build 7-day data table
+  const ouraRows = readOuraCsv(vaultPath)
+  const ouraMap = new Map(ouraRows.map((r) => [r.date, r]))
+
+  const spendingMap = new Map(readSpendingCsv(vaultPath).map((r) => [r.date, parseFloat(r.spending)]))
+
+  const rows: string[] = []
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date()
+    d.setDate(d.getDate() - i)
+    const date = localDateStr(d)
+    const o = ouraMap.get(date)
+    const ciText = readCheckIn(vaultPath, date) ?? ''
+    const moodMatch = ciText.match(/mood:\s*(\d)/i)
+    const energyMatch = ciText.match(/energy:\s*(\d)/i)
+    const notesMatch = ciText.match(/##\s*Notes\s*\n+([\s\S]*?)(?:\n##|$)/i)
+    const mood = moodMatch ? moodMatch[1] : 'n/a'
+    const energy = energyMatch ? energyMatch[1] : 'n/a'
+    const notes = notesMatch ? notesMatch[1].trim().replace(/\n/g, ' ').slice(0, 80) : ''
+    const spending = spendingMap.get(date)
+
+    const cols = [
+      date,
+      o?.readiness_score || 'n/a',
+      o?.sleep_hours || 'n/a',
+      o?.hrv_avg || 'n/a',
+      mood,
+      energy,
+      o?.steps || 'n/a',
+      ...(config.ynabEnabled ? [spending != null ? spending.toFixed(2) : 'n/a'] : []),
+    ]
+    const row = cols.join(' | ')
+    rows.push(notes ? `${row}  [notes: ${notes}]` : row)
+  }
+
+  const spendingCol = config.ynabEnabled ? ' | spending' : ''
+  const header = `date | readiness | sleep_h | hrv | mood/5 | energy/5 | steps${spendingCol}`
+
+  const prompt = [
+    'You are a health data analyst. Review the last 7 days of wellness data below and identify any concerning outliers or multi-day trends.',
+    'Return ONLY a JSON array of short warning strings (max 12 words each). If there are no concerns, return an empty array [].',
+    'Do not explain, do not add prose outside the JSON.',
+    '',
+    `Data (${header}):`,
+    ...rows,
+    '',
+    'JSON array:',
+  ].join('\n')
+
+  const res = await fetch(`${OLLAMA_BASE}/api/generate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model, prompt, stream: false })
+  })
+
+  if (!res.ok) throw new Error(`Ollama API error ${res.status}`)
+  const json = (await res.json()) as { response: string }
+
+  // Extract JSON array from response (guard against leading prose)
+  const raw = json.response ?? ''
+  const start = raw.indexOf('[')
+  const end = raw.lastIndexOf(']')
+  let warnings: string[] = []
+  if (start !== -1 && end !== -1) {
+    try {
+      warnings = JSON.parse(raw.slice(start, end + 1))
+    } catch {
+      // Parse failure — don't cache, return empty
+      return '[]'
+    }
+  }
+
+  const warningsText = JSON.stringify(warnings)
+  writeConfig(vaultPath, { ...config, warningsDate: today, warningsText })
+  return warningsText
+}
+
 // ─── Check-in files ───────────────────────────────────────────────────────────
 function getCheckInPath(vaultPath: string, date: string): string {
   return join(vaultPath, 'check-ins', `${date}.md`)
@@ -538,7 +630,7 @@ function registerIpcHandlers(): void {
     'start-oura-auth', 'disconnect-oura',
     'read-oura-csv', 'sync-oura',
     'read-check-in', 'write-check-in', 'list-check-ins',
-    'check-ollama', 'generate-summary',
+    'check-ollama', 'generate-summary', 'generate-warnings',
     'list-screenings', 'save-screening',
     'start-chat', 'read-chat-history', 'write-chat-history',
     'connect-ynab', 'sync-ynab', 'read-ynab-csv', 'disconnect-ynab'
@@ -697,6 +789,13 @@ function registerIpcHandlers(): void {
     const vaultPath = getVaultPath()
     if (!vaultPath) throw new Error('No vault path set')
     return generateDailySummary(vaultPath, force)
+  })
+
+  // AI warnings
+  ipcMain.handle('generate-warnings', async (_e, force: boolean = false) => {
+    const vaultPath = getVaultPath()
+    if (!vaultPath) throw new Error('No vault path set')
+    return generateWarnings(vaultPath, force)
   })
 
   // Screenings

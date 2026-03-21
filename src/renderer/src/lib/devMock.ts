@@ -141,6 +141,14 @@ export function installDevMock(): void {
       return "Yesterday's solid 8.1h of sleep and high HRV of 58 have set you up well — your readiness is strong today. Your energy and mood were both at their peak yesterday, which is a great sign heading into today. Focus on keeping your activity level up and you should feel great."
     },
 
+    generateWarnings: async () => {
+      await new Promise((r) => setTimeout(r, 1400))
+      return JSON.stringify([
+        'HRV dropped to 29 four days ago — well below your recent range',
+        'Sleep under 6h on two of the last seven nights',
+      ])
+    },
+
     // Chat
     startChat: async (messages: ChatMessage[]) => {
       const last = messages[messages.length - 1]?.content ?? ''
