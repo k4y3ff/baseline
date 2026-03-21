@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 import { useDashboard } from '../hooks/useDashboard'
 import { useConfig } from '../hooks/useConfig'
 import { useScreenings } from '../hooks/useScreenings'
@@ -187,13 +187,23 @@ export default function Dashboard() {
       <div className="drag-region px-5 pt-10 pb-3">
         <div className="no-drag flex items-center justify-between">
           <AppLogo width={108} />
-          {syncing ? (
-            <span className="text-[--color-muted] text-xs">Syncing…</span>
-          ) : (
-            <span className="text-[--color-muted] text-xs">
-              {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-            </span>
-          )}
+          <div className="flex items-center gap-2">
+            {syncing ? (
+              <span className="text-[--color-muted] text-xs">Syncing…</span>
+            ) : (
+              <span className="text-[--color-muted] text-xs">
+                {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+              </span>
+            )}
+            <NavLink
+              to="/settings"
+              className={({ isActive }) =>
+                `text-[1.5rem] leading-none transition-colors ${isActive ? 'text-[--color-brand]' : 'text-[--color-muted] hover:text-[--color-text]'}`
+              }
+            >
+              ⚙
+            </NavLink>
+          </div>
         </div>
       </div>
 

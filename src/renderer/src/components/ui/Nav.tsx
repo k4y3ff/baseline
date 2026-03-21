@@ -4,7 +4,6 @@ const links = [
   { to: '/dashboard', label: 'Today', icon: '◉' },
   { to: '/analyze', label: 'Analyze', icon: '↗' },
   { to: '/history', label: 'History', icon: '≡' },
-  { to: '/settings', label: 'Settings', icon: '⚙' }
 ]
 
 export default function Nav() {
