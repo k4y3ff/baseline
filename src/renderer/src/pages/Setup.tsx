@@ -1,12 +1,10 @@
 import { useState, useEffect } from 'react'
-import { isCapacitor } from '../lib/platformDetect'
 
 interface Props {
   onComplete: (vaultPath: string) => void
 }
 
 export default function Setup({ onComplete }: Props) {
-  const onAndroid = isCapacitor()
   const [step, setStep] = useState<'folder' | 'oura'>('folder')
   const [vaultPath, setVaultPath] = useState<string | null>(null)
   const [clientId, setClientId] = useState('')
@@ -15,14 +13,6 @@ export default function Setup({ onComplete }: Props) {
   const [connected, setConnected] = useState(false)
   const [connectError, setConnectError] = useState<string | null>(null)
   const [authUrl, setAuthUrl] = useState<string | null>(null)
-
-  // On Android: auto-create vault in app-private storage and skip folder step
-  useEffect(() => {
-    if (!onAndroid) return
-    const path = 'vault'
-    setVaultPath(path)
-    window.baseline.setupVault(path).then(() => setStep('oura'))
-  }, [onAndroid])
 
   // Listen for OAuth result from main process
   useEffect(() => {
@@ -78,7 +68,7 @@ export default function Setup({ onComplete }: Props) {
         <div className="text-[--color-muted] text-sm mt-1">Your local wellness dashboard</div>
       </div>
 
-      {step === 'folder' && !onAndroid && (
+      {step === 'folder' && (
         <div className="w-full flex flex-col gap-4">
           <h2 className="text-lg font-semibold text-center">Choose a vault folder</h2>
           <p className="text-[--color-muted] text-sm text-center">
@@ -107,12 +97,6 @@ export default function Setup({ onComplete }: Props) {
         </div>
       )}
 
-      {step === 'folder' && onAndroid && (
-        <div className="w-full flex flex-col gap-4 items-center">
-          <p className="text-[--color-muted] text-sm text-center">Setting up…</p>
-        </div>
-      )}
-
       {step === 'oura' && (
         <div className="w-full flex flex-col gap-4">
           <h2 className="text-lg font-semibold text-center">Connect Oura (optional)</h2>
@@ -135,10 +119,7 @@ export default function Setup({ onComplete }: Props) {
               <p className="text-[--color-muted] text-sm text-center">
                 Register an OAuth app at{' '}
                 <span className="text-indigo-400">cloud.ouraring.com/oauth/apps</span> to get your
-                Client ID and Secret.{onAndroid && (
-                  <> Set the redirect URI to <span className="text-indigo-400">baseline://oura-auth</span>.</>
-                )}{' '}
-                You can skip this and connect later in Settings.
+                Client ID and Secret. You can skip this and connect later in Settings.
               </p>
 
               <input

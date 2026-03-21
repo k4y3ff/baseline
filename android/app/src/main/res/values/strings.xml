@@ -1,7 +1,0 @@
-<?xml version='1.0' encoding='utf-8'?>
-<resources>
-    <string name="app_name">Baseline</string>
-    <string name="title_activity_main">Baseline</string>
-    <string name="package_name">com.baseline.app</string>
-    <string name="custom_url_scheme">com.baseline.app</string>
-</resources>
