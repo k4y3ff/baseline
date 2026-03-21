@@ -13,11 +13,21 @@ export default function Unlock({ meta, onUnlocked }: UnlockProps) {
   const [touchIdAvailable, setTouchIdAvailable] = useState(false)
 
   useEffect(() => {
-    window.baseline.canUseTouchId().then(setTouchIdAvailable)
-    // Auto-prompt Touch ID if it's the preferred unlock method
-    if (meta.touchIdEnabled) {
-      tryTouchId()
-    }
+    window.baseline.canUseTouchId().then((canUse) => {
+      setTouchIdAvailable(canUse)
+      // Auto-prompt on mount, but silently fall back on cancel/failure
+      if (meta.touchIdEnabled && canUse) {
+        setBusy(true)
+        window.baseline.unlockWithTouchId().then((result) => {
+          if (result.success) {
+            onUnlocked()
+          } else {
+            setBusy(false)
+            // No error shown — user can retry via button or use password
+          }
+        })
+      }
+    })
   }, [])
 
   const tryTouchId = async () => {
@@ -52,7 +62,7 @@ export default function Unlock({ meta, onUnlocked }: UnlockProps) {
           <p className="text-base font-semibold">Baseline is locked</p>
           <p className="text-xs text-[--color-muted]">
             {meta.touchIdEnabled && touchIdAvailable
-              ? 'Use Touch ID or enter your password to unlock'
+              ? 'Use Touch ID or your password to unlock'
               : 'Enter your password to unlock'}
           </p>
         </div>

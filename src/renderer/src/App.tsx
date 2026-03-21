@@ -20,7 +20,6 @@ export default function App() {
   useEffect(() => {
     async function init() {
       const path = await window.baseline.getVaultPath()
-      setVaultPath(path)
       if (path) {
         const meta = await window.baseline.readVaultMeta()
         setVaultMeta(meta)
@@ -30,6 +29,8 @@ export default function App() {
           setUnlocked(already)
         }
       }
+      // Set path last — keeps the loading spinner until all checks are done
+      setVaultPath(path)
     }
     init()
   }, [])
