@@ -23,6 +23,8 @@ export interface Config {
   ynabBudgetName?: string
   screeningsEnabled?: string[]
   screeningFrequency?: 'weekly' | 'biweekly' | 'monthly' | 'quarterly'
+  remindersEnabled?: boolean
+  reminderTime?: string   // "HH:MM" 24h format, e.g. "09:00"
 }
 
 export interface ChatMessage {

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, shell, Tray, nativeImage } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, shell, Tray, nativeImage, Notification } from 'electron'
 import { join } from 'path'
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync } from 'fs'
 import { createServer } from 'http'
@@ -9,6 +9,7 @@ import Papa from 'papaparse'
 // ─── Custom protocol ──────────────────────────────────────────────────────────
 // Primary redirect: baseline://oauth/callback (custom URI scheme, RFC 8252 §7.1)
 // Fallback redirect: http://127.0.0.1:PORT  (loopback, RFC 8252 §7.3)
+app.setName('Baseline')
 app.setAsDefaultProtocolClient('baseline')
 
 // ─── Vault path persistence ───────────────────────────────────────────────────
@@ -50,6 +51,8 @@ interface Config {
   ynabBudgetName?: string
   screeningsEnabled?: string[]
   screeningFrequency?: 'weekly' | 'biweekly' | 'monthly' | 'quarterly'
+  remindersEnabled?: boolean
+  reminderTime?: string   // "HH:MM" 24h format, e.g. "09:00"
 }
 
 interface ChatMessage {
@@ -666,6 +669,7 @@ function registerIpcHandlers(): void {
     const vaultPath = getVaultPath()
     if (!vaultPath) throw new Error('No vault path set')
     writeConfig(vaultPath, config)
+    scheduleReminderFromConfig()
   })
 
   // Oura OAuth — fixed-port loopback server
@@ -1202,8 +1206,65 @@ function createTray(): void {
     } else {
       mainWindow.show()
       mainWindow.focus()
+      clearNotificationState()
     }
   })
+}
+
+// ─── Reminders ────────────────────────────────────────────────────────────────
+let reminderTimeout: NodeJS.Timeout | null = null
+let notificationPending = false
+
+function msUntilNext(h: number, m: number): number {
+  const now = new Date()
+  const next = new Date(now)
+  next.setHours(h, m, 0, 0)
+  if (next <= now) next.setDate(next.getDate() + 1)
+  return next.getTime() - now.getTime()
+}
+
+function scheduleReminder(hhmm: string): void {
+  cancelScheduledReminder()
+  const [hStr, mStr] = hhmm.split(':')
+  const h = parseInt(hStr, 10)
+  const m = parseInt(mStr, 10)
+  if (isNaN(h) || isNaN(m)) return
+
+  function fire(): void {
+    new Notification({
+      title: 'Baseline',
+      body: 'Time to fill out your daily log.'
+    }).show()
+    if (process.platform === 'darwin') app.dock.setBadge('1')
+    notificationPending = true
+    reminderTimeout = setTimeout(fire, msUntilNext(h, m))
+  }
+
+  reminderTimeout = setTimeout(fire, msUntilNext(h, m))
+}
+
+function cancelScheduledReminder(): void {
+  if (reminderTimeout !== null) {
+    clearTimeout(reminderTimeout)
+    reminderTimeout = null
+  }
+}
+
+function scheduleReminderFromConfig(): void {
+  const vaultPath = getVaultPath()
+  if (!vaultPath) return
+  const config = readConfig(vaultPath)
+  if (config.remindersEnabled && config.reminderTime) {
+    scheduleReminder(config.reminderTime)
+  } else {
+    cancelScheduledReminder()
+  }
+}
+
+function clearNotificationState(): void {
+  if (!notificationPending) return
+  notificationPending = false
+  if (process.platform === 'darwin') app.dock.setBadge('')
 }
 
 // ─── Window ───────────────────────────────────────────────────────────────────
@@ -1226,6 +1287,7 @@ function createWindow(): void {
 
   mainWindow.on('ready-to-show', () => mainWindow?.show())
   mainWindow.on('closed', () => { mainWindow = null })
+  mainWindow.on('focus', () => clearNotificationState())
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
@@ -1243,6 +1305,7 @@ app.whenReady().then(() => {
   registerIpcHandlers()
   createWindow()
   createTray()
+  scheduleReminderFromConfig()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })

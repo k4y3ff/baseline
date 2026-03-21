@@ -10,6 +10,8 @@ export interface Config {
   warningsEnabled?: boolean
   warningsDate?: string
   warningsText?: string
+  remindersEnabled?: boolean
+  reminderTime?: string
 }
 
 export interface OuraRow {

@@ -16,6 +16,12 @@ export default function Settings() {
 
   const isConnected = Boolean(config.ouraAccessToken)
 
+  // ── Reminders state ──
+  const [reminderTime, setReminderTime] = useState(config.reminderTime ?? '09:00')
+  useEffect(() => {
+    setReminderTime(config.reminderTime ?? '09:00')
+  }, [config.reminderTime])
+
   // ── Ollama state ──
   const [ollamaChecking, setOllamaChecking] = useState(false)
   const [ollamaAvailable, setOllamaAvailable] = useState<boolean | null>(null)
@@ -267,6 +273,53 @@ export default function Settings() {
                 }`} />
               </button>
             </div>
+
+          </div>
+        </section>
+
+        {/* Reminders */}
+        <section className="flex flex-col gap-3">
+          <h2 className="text-xs font-semibold text-[--color-muted] uppercase tracking-wider">
+            Reminders
+          </h2>
+          <div className="bg-[--color-surface-2] rounded-xl border border-[--color-border] p-4 flex flex-col gap-4">
+
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium">Daily log reminders</p>
+                <p className="text-xs text-[--color-muted] mt-0.5">
+                  Get a macOS notification to fill out your daily log
+                </p>
+              </div>
+              <button
+                role="switch"
+                aria-checked={config.remindersEnabled ?? false}
+                onClick={() => save({ remindersEnabled: !config.remindersEnabled })}
+                className={`relative shrink-0 w-11 h-6 rounded-full transition-colors ${
+                  config.remindersEnabled ? 'bg-[--color-brand]' : 'bg-[--color-border]'
+                }`}
+              >
+                <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
+                  config.remindersEnabled ? 'translate-x-5' : 'translate-x-0'
+                }`} />
+              </button>
+            </div>
+
+            {config.remindersEnabled && (
+              <div className="flex items-center justify-between gap-4 pt-3 border-t border-[--color-border]">
+                <label htmlFor="reminder-time" className="text-sm text-[--color-muted]">
+                  Reminder time
+                </label>
+                <input
+                  id="reminder-time"
+                  type="time"
+                  value={reminderTime}
+                  onChange={(e) => setReminderTime(e.target.value)}
+                  onBlur={(e) => { if (e.target.value) save({ reminderTime: e.target.value }) }}
+                  className="bg-[--color-surface] border border-[--color-border] rounded-lg px-3 py-1.5 text-sm outline-none focus:border-[--color-brand] transition-colors"
+                />
+              </div>
+            )}
 
           </div>
         </section>
