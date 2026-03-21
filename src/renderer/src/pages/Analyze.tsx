@@ -29,6 +29,7 @@ const selectCls = 'bg-[--color-surface] border border-[--color-border] rounded-l
 
 const RANGES = [
   { label: '7 days',   days: 7   },
+  { label: '14 days',  days: 14  },
   { label: '1 month',  days: 30  },
   { label: '3 months', days: 90  },
   { label: '6 months', days: 180 },
