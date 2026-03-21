@@ -31,13 +31,19 @@ function formatAllSnippets(snippets: ClinicianSnippet[]): string {
   }).join('\n\n')
 }
 
+const APPOINTMENT_TYPES = ['Primary Care', 'Psychiatric', 'Therapy', 'Other...']
+
 // ─── Create Appointment Form ──────────────────────────────────────────────────
 function CreateAppointmentForm({ onSave, onCancel }: {
-  onSave: (date: string, title: string) => void
+  onSave: (date: string, title: string, type: string) => void
   onCancel: () => void
 }) {
   const [date, setDate] = useState(today)
   const [title, setTitle] = useState('')
+  const [type, setType] = useState(APPOINTMENT_TYPES[0])
+  const [customType, setCustomType] = useState('')
+
+  const resolvedType = type === 'Other...' ? customType : type
 
   return (
     <div className="bg-[--color-surface-2] border border-[--color-border] rounded-xl p-3 flex flex-col gap-2">
@@ -47,6 +53,24 @@ function CreateAppointmentForm({ onSave, onCancel }: {
         onChange={(e) => setDate(e.target.value)}
         className="text-xs bg-[--color-surface] border border-[--color-border] rounded-lg px-2.5 py-1.5 text-[--color-text] focus:outline-none focus:border-[--color-muted]"
       />
+      <select
+        value={type}
+        onChange={(e) => setType(e.target.value)}
+        className="text-xs bg-[--color-surface] border border-[--color-border] rounded-lg px-2.5 py-1.5 text-[--color-text] focus:outline-none focus:border-[--color-muted]"
+      >
+        {APPOINTMENT_TYPES.map((t) => (
+          <option key={t} value={t}>{t}</option>
+        ))}
+      </select>
+      {type === 'Other...' && (
+        <input
+          type="text"
+          value={customType}
+          onChange={(e) => setCustomType(e.target.value)}
+          placeholder="Appointment type"
+          className="text-xs bg-[--color-surface] border border-[--color-border] rounded-lg px-2.5 py-1.5 text-[--color-text] placeholder:text-[--color-muted] focus:outline-none focus:border-[--color-muted]"
+        />
+      )}
       <input
         type="text"
         value={title}
@@ -62,7 +86,7 @@ function CreateAppointmentForm({ onSave, onCancel }: {
           Cancel
         </button>
         <button
-          onClick={() => { if (date) onSave(date, title) }}
+          onClick={() => { if (date) onSave(date, title, resolvedType) }}
           className="text-xs px-3 py-1.5 rounded-lg border border-[--color-border] hover:border-[--color-muted] hover:bg-white/[0.06] transition-colors"
         >
           Create
@@ -117,9 +141,16 @@ function AppointmentCard({ appointment, snippets, onDelete, onAssignSnippet, onU
     >
       <div className="flex items-start justify-between gap-2 mb-2">
         <div>
-          <p className="text-xs font-semibold text-[--color-text]">
-            {formatDate(appointment.date)}
-          </p>
+          <div className="flex items-center gap-1.5">
+            <p className="text-xs font-semibold text-[--color-text]">
+              {formatDate(appointment.date)}
+            </p>
+            {appointment.type && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-[--color-surface] border border-[--color-border] text-[--color-muted] leading-none">
+                {appointment.type}
+              </span>
+            )}
+          </div>
           {appointment.title && (
             <p className="text-xs text-[--color-muted] mt-0.5">{appointment.title}</p>
           )}
@@ -278,8 +309,8 @@ export default function Prepare() {
   // Unassigned snippets shown in the queue
   const unassignedSnippets = snippets.filter((s) => !assignedSnippetIds.has(s.id))
 
-  const handleCreateAppointment = (date: string, title: string) => {
-    addAppointment(date, title)
+  const handleCreateAppointment = (date: string, title: string, type: string) => {
+    addAppointment(date, title, type)
     setCreatingAppointment(false)
   }
 

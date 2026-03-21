@@ -72,6 +72,7 @@ let mockAppointments: Appointment[] = [
     id: 'mock-appt-1',
     date: daysAgo(0),
     title: 'Dr. Smith',
+    type: 'Primary Care',
     createdAt: new Date().toISOString(),
     snippetIds: ['mock-snippet-1'],
   },

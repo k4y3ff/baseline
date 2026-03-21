@@ -1166,6 +1166,7 @@ interface Appointment {
   id: string
   date: string
   title?: string
+  type?: string
   createdAt: string
   snippetIds: string[]
 }

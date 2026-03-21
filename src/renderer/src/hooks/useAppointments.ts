@@ -13,11 +13,12 @@ export function useAppointments() {
     window.baseline.writeAppointments(next)
   }, [])
 
-  const addAppointment = useCallback((date: string, title?: string) => {
+  const addAppointment = useCallback((date: string, title?: string, type?: string) => {
     const appt: Appointment = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
       date,
       title: title || undefined,
+      type: type || undefined,
       createdAt: new Date().toISOString(),
       snippetIds: [],
     }

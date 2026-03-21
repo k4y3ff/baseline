@@ -106,6 +106,7 @@ export interface Appointment {
   id: string
   date: string         // YYYY-MM-DD
   title?: string
+  type?: string
   createdAt: string    // ISO timestamp
   snippetIds: string[]
 }
