@@ -189,7 +189,7 @@ function AppointmentDetail({ appointment, snippets, onClose }: {
   return (
     <div ref={panelRef} className="absolute inset-0 flex flex-col" style={{ background: 'var(--color-surface)' }}>
       {/* Panel header */}
-      <div className="px-5 pt-5 pb-4 shrink-0">
+      <div className="drag-region px-5 pt-5 pb-4 shrink-0">
         <div className="no-drag flex items-start justify-between">
           <div className="flex items-start gap-3">
             <button
@@ -301,7 +301,7 @@ export default function Prepare() {
     <div className="flex flex-col h-full">
       {/* Header — hidden when detail panel is open (panel has its own header) */}
       {!selectedAppt && (
-        <div className="px-5 pt-5 pb-4 shrink-0">
+        <div className="drag-region px-5 pt-5 pb-4 shrink-0">
           <div className="no-drag flex items-center justify-between">
             <div>
               <h1 className="text-xl font-bold">Prepare</h1>
