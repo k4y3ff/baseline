@@ -2,9 +2,9 @@ import { useRef, useState } from 'react'
 import PageHeader from '../components/ui/PageHeader'
 import { useClinicianNotes } from '../hooks/useClinicianNotes'
 import { useAppointments } from '../hooks/useAppointments'
-import WeekChart from '../components/charts/WeekChart'
+import WeekChart, { CHART_VARS } from '../components/charts/WeekChart'
 import type { ChartVarKey } from '../components/charts/WeekChart'
-import type { ClinicianSnippet, Appointment } from '../types'
+import type { ClinicianSnippet, Appointment, DayData } from '../types'
 
 const today = new Date().toISOString().split('T')[0]
 
@@ -32,6 +32,67 @@ function formatAllSnippets(snippets: ClinicianSnippet[]): string {
 }
 
 const APPOINTMENT_TYPES = ['Primary Care', 'Psychiatric', 'Therapy', 'Other...']
+
+// ─── PDF View (rendered off-screen for export) ────────────────────────────────
+const pdfThStyle: React.CSSProperties = { textAlign: 'left', padding: '4px 8px', borderBottom: '1px solid #e5e7eb', fontWeight: 600, color: '#555' }
+const pdfTdStyle: React.CSSProperties = { padding: '3px 8px', color: '#333' }
+
+function AppointmentPDFView({ appointment, snippets }: { appointment: Appointment; snippets: ClinicianSnippet[] }) {
+  return (
+    <div style={{ background: '#fff', color: '#111', padding: 40, width: 700, fontFamily: 'system-ui, sans-serif' }}>
+      <div style={{ borderBottom: '2px solid #e5e7eb', paddingBottom: 16, marginBottom: 28 }}>
+        <h1 style={{ fontSize: 20, fontWeight: 700, margin: '0 0 8px 0' }}>{formatDate(appointment.date)}</h1>
+        <div style={{ fontSize: 13, color: '#555', display: 'flex', gap: 16 }}>
+          {appointment.title && <span>Provider: <strong>{appointment.title}</strong></span>}
+          {appointment.type && <span>Type: <strong>{appointment.type}</strong></span>}
+        </div>
+      </div>
+      {snippets.map((s, i) => {
+        const varA = s.chartMeta?.varA as ChartVarKey | undefined
+        const varB = s.chartMeta?.varB as ChartVarKey | undefined
+        const defA = varA ? CHART_VARS[varA] : null
+        const defB = varB ? CHART_VARS[varB] : null
+        const sameVar = varA === varB
+        return (
+          <div key={s.id} style={{ marginBottom: 36, paddingTop: i > 0 ? 28 : 0, borderTop: i > 0 ? '1px solid #e5e7eb' : 'none' }}>
+            <p style={{ fontSize: 11, fontWeight: 600, color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 4px 0' }}>{s.label}</p>
+            <p style={{ fontSize: 12, color: '#666', margin: '0 0 12px 0' }}>{s.capturedDate}</p>
+            {s.chartMeta && varA && varB && defA && defB ? (
+              <>
+                <div style={{ width: '100%', height: 180, marginBottom: 16 }}>
+                  <WeekChart days={s.chartMeta.days} varA={varA} varB={varB} numDays={s.chartMeta.numDays} />
+                </div>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+                  <thead>
+                    <tr>
+                      <th style={pdfThStyle}>Date</th>
+                      <th style={{ ...pdfThStyle, color: defA.color }}>{defA.label}{defA.unit ? ` (${defA.unit})` : ''}</th>
+                      {!sameVar && <th style={{ ...pdfThStyle, color: defB.color }}>{defB.label}{defB.unit ? ` (${defB.unit})` : ''}</th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {s.chartMeta.days.map((day, di) => (
+                      <tr key={di} style={{ background: di % 2 === 0 ? '#f9fafb' : '#fff' }}>
+                        <td style={pdfTdStyle}>{day.label}</td>
+                        <td style={pdfTdStyle}>{(day[varA as keyof DayData] ?? '—') as React.ReactNode}</td>
+                        {!sameVar && <td style={pdfTdStyle}>{(day[varB as keyof DayData] ?? '—') as React.ReactNode}</td>}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </>
+            ) : (
+              <pre style={{ fontSize: 12, whiteSpace: 'pre-wrap', fontFamily: 'monospace', color: '#222', margin: 0 }}>{s.text}</pre>
+            )}
+            {s.comment && (
+              <p style={{ fontSize: 12, color: '#666', fontStyle: 'italic', marginTop: 10, paddingTop: 10, borderTop: '1px solid #e5e7eb' }}>{s.comment}</p>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
 
 // ─── Create Appointment Form ──────────────────────────────────────────────────
 function CreateAppointmentForm({ onSave, onCancel }: {
@@ -97,7 +158,7 @@ function CreateAppointmentForm({ onSave, onCancel }: {
 }
 
 // ─── Appointment Card ─────────────────────────────────────────────────────────
-function AppointmentCard({ appointment, snippets, onDelete, onUpdate, onAssignSnippet, onUnassignSnippet, onClick }: {
+function AppointmentCard({ appointment, snippets, onDelete, onUpdate, onAssignSnippet, onUnassignSnippet, onClick, onDownload }: {
   appointment: Appointment
   snippets: ClinicianSnippet[]
   onDelete: () => void
@@ -105,6 +166,7 @@ function AppointmentCard({ appointment, snippets, onDelete, onUpdate, onAssignSn
   onAssignSnippet: (snippetId: string) => void
   onUnassignSnippet: (snippetId: string) => void
   onClick: () => void
+  onDownload: () => void
 }) {
   const [isDragOver, setIsDragOver] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
@@ -233,6 +295,16 @@ function AppointmentCard({ appointment, snippets, onDelete, onUpdate, onAssignSn
                 >
                   <svg width="11" height="11" viewBox="0 0 15 15" fill="currentColor">
                     <path d="M11.854.146a.5.5 0 0 0-.707 0l-1.5 1.5 3.707 3.707 1.5-1.5a.5.5 0 0 0 0-.707l-3-3zM9.5 2.5 2 10v3h3l7.5-7.5L9.5 2.5z"/>
+                  </svg>
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); onDownload() }}
+                  className="text-[--color-muted] hover:text-[--color-text] transition-colors shrink-0"
+                  title="Download as PDF"
+                >
+                  <svg width="11" height="11" viewBox="0 0 15 15" fill="currentColor">
+                    <path d="M7.5 11L4 7.5h2.25V2h2.5v5.5H11L7.5 11z"/>
+                    <path d="M2 12.5h11V14H2z"/>
                   </svg>
                 </button>
               </div>
@@ -379,6 +451,35 @@ export default function Prepare() {
   const { appointments, addAppointment, updateAppointment, deleteAppointment, assignSnippet, unassignSnippet } = useAppointments()
   const [creatingAppointment, setCreatingAppointment] = useState(false)
   const [selectedApptId, setSelectedApptId] = useState<string | null>(null)
+  const [downloadingApptId, setDownloadingApptId] = useState<string | null>(null)
+
+  async function handleDownload(appointment: Appointment) {
+    if (downloadingApptId) return
+    setDownloadingApptId(appointment.id)
+    try {
+      const assignedSnippets = snippets.filter((s) => appointment.snippetIds.includes(s.id))
+      const container = document.createElement('div')
+      container.style.cssText = 'position:fixed;left:-9999px;top:0;width:750px;'
+      document.body.appendChild(container)
+      const { createRoot } = await import('react-dom/client')
+      const root = createRoot(container)
+      root.render(<AppointmentPDFView appointment={appointment} snippets={assignedSnippets} />)
+      await new Promise((r) => setTimeout(r, 600))
+      const { default: html2canvas } = await import('html2canvas')
+      const { jsPDF } = await import('jspdf')
+      const el = container.firstElementChild as HTMLElement
+      const canvas = await html2canvas(el, { scale: 2, backgroundColor: '#ffffff' })
+      const imgData = canvas.toDataURL('image/png')
+      const pdf = new jsPDF({ unit: 'pt', format: [canvas.width / 2, canvas.height / 2] })
+      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width / 2, canvas.height / 2)
+      const buffer = Array.from(new Uint8Array(pdf.output('arraybuffer') as ArrayBuffer))
+      await window.baseline.savePdf(buffer, `appointment-${appointment.date}.pdf`)
+      root.unmount()
+      document.body.removeChild(container)
+    } finally {
+      setDownloadingApptId(null)
+    }
+  }
 
   const selectedAppt = appointments.find((a) => a.id === selectedApptId) ?? null
 
@@ -474,6 +575,7 @@ export default function Prepare() {
                 onAssignSnippet={(snippetId) => assignSnippet(appt.id, snippetId)}
                 onUnassignSnippet={(snippetId) => unassignSnippet(appt.id, snippetId)}
                 onClick={() => setSelectedApptId(appt.id)}
+                onDownload={() => handleDownload(appt)}
               />
             ))}
           </div>
